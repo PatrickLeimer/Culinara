@@ -1,1 +1,1 @@
-# ProjectSWE
+# Project Intro to SWE
