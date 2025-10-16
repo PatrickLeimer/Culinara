@@ -1,20 +1,13 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Themed';
-import { FontAwesome } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <FontAwesome name="bars" size={24} color="#333" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Hello, User</Text>
-        <TouchableOpacity>
-          <FontAwesome name="cog" size={24} color="#333" />
-        </TouchableOpacity>
       </View>
 
       {/* Stats Section */}
@@ -52,9 +45,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center', // Center the text horizontally
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 22,

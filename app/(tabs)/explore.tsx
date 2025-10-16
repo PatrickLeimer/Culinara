@@ -11,13 +11,7 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <FontAwesome name="bars" size={24} color="#333" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>EXPLORE</Text>
-        <TouchableOpacity>
-          <FontAwesome name="user-circle" size={24} color="#333" />
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -87,9 +81,8 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 10,
   },
   headerTitle: {
     fontSize: 22,
