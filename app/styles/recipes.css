@@ -33,8 +33,8 @@
 
 /* Individual recipe card */
 .recipeCard {
-  flex: 1 1 calc((100% - 40px - 1px) / 3); /* slightly smaller to fit 3 */
-  max-width: calc((100% - 40px - 1px) / 3);
+  flex: 1 1 calc(33.33% - 10px); /* 3 cards per row with gap */
+  max-width: calc(33.33% - 10px);
   box-sizing: border-box;
   height: 180px; /* fixed height */
   background-color: #FAFAFA;
@@ -90,6 +90,9 @@
   width: 90%;
   max-height: 90%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .modalButtons {
@@ -127,6 +130,19 @@
   margin-bottom: 10px;
 }
 
+/* Textarea for description */
+.input.textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+  min-height: 120px; /* increase height */
+  resize: vertical;   /* allow vertical resize */
+  font-size: 14px;    /* slightly bigger text */
+}
+
+/* Selection containers (original clickable boxes) */
 .selectionContainer {
   display: flex;
   flex-wrap: wrap;
@@ -144,4 +160,66 @@
 .selectionItemSelected {
   background-color: #007aff;
   color: #fff;
+}
+
+/* Dropdown + selected items (chips) */
+.dropdownContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1px; /* LOOK HERE */
+  margin-bottom: 10px;
+}
+
+/* Custom dropdown list */
+.dropdownList {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.dropdownItem {
+  padding: 1px 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dropdownItem:hover {
+  background-color: #f0f0f0;
+}
+
+.dropdownItem.selected {
+  background-color: #e6f0ff;
+}
+
+.checkmark {
+  color: #007aff;
+  font-weight: bold;
+}
+
+/* Selected items (chips) */
+.selectedItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.selectedItem {
+  background-color: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.removeItem {
+  cursor: pointer;
+  font-weight: bold;
+  color: #ff4d4d;
 }
