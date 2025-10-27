@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { StyleSheet, TextInput, TouchableOpacity, Text, View } from 'react-native';
+import { useRouter } from 'expo-router'; // <-- Expo Router navigation
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const router = useRouter();
 
   const handleLogin = () => {
     console.log('Email:', email);
     console.log('Password:', password);
-    // TODO: Add login logic here
+    // Navigate to Explore tab (inside tabs)
+    router.replace('/explore'); // replace so user can't go back to login
   };
 
   return (

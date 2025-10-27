@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TextInput } from 'react-native';
 import { Text } from '@/components/Themed';
 import { FontAwesome } from '@expo/vector-icons';
 
@@ -8,13 +8,7 @@ export default function FriendsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <FontAwesome name="bars" size={24} color="#333" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Friends</Text>
-        <TouchableOpacity>
-          <FontAwesome name="user-circle" size={24} color="#333" />
-        </TouchableOpacity>
       </View>
 
       {/* No Friends Message */}
@@ -43,9 +37,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center', // center the header title
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 22,
