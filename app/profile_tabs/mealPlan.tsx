@@ -123,7 +123,7 @@ export default function MealPlan() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 16, backgroundColor: '#bfcdb8ff' },
   recipesContainer: { flex: 2 },
   dayContainer: { marginBottom: 16 },
   dayTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
@@ -152,8 +152,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   activeToggle: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: '#5b8049ff',
+    borderColor: '#5b8049ff',
   },
   toggleText: { color: '#333' },
   activeText: { color: '#fff', fontWeight: '600' },
