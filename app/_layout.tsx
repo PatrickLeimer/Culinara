@@ -52,6 +52,9 @@ function RootLayoutNav() {
       <Stack>
         {/* Login screen outside the tabs */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        
+        {/* Signup screen outside the tabs */}
+        <Stack.Screen name="signup" options={{ headerShown: false }} />
 
         {/* Bottom tabs */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
