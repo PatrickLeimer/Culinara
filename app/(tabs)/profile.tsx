@@ -1,23 +1,20 @@
-import React from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { Text } from '@/components/Themed';
-import { FontAwesome } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import MyRecipes from '../profile_tabs/myRecipes';
+import MealPlan from '../profile_tabs/mealPlan';
+// import Liked from '../profile_tabs/Liked'; // future tab
 
-export default function ProfileScreen() {
+const Profile: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'MyRecipes' | 'Liked' | 'MealPlan'>('MyRecipes');
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <FontAwesome name="bars" size={24} color="#333" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Hello, User</Text>
-        <TouchableOpacity>
-          <FontAwesome name="cog" size={24} color="#333" />
-        </TouchableOpacity>
       </View>
 
-      {/* Stats Section */}
+      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Friends</Text>
@@ -25,82 +22,55 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Recipes</Text>
-          <Text style={styles.statNumber}>8</Text>
+          <Text style={styles.statNumber}>2</Text>
         </View>
       </View>
 
-      {/* Horizontal Tabs (Titles) */}
+      {/* Tabs */}
       <View style={styles.tabsContainer}>
-        <Text style={[styles.tab, styles.activeTab]}>MyRecipes</Text>
-        <Text style={styles.tab}>Liked</Text>
-        <Text style={styles.tab}>MealPlan</Text>
+        {(['MyRecipes', 'Liked', 'MealPlan'] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[
+              styles.tab,
+              activeTab === tab && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={styles.tabText}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Placeholder for content */}
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Your content will appear here</Text>
+      {/* Content */}
+      <View style={styles.contentContainer}>
+        {activeTab === 'MyRecipes' && <MyRecipes />}
+        {activeTab === 'MealPlan' && <MealPlan />}
+        {activeTab === 'Liked' && (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>Liked recipes will appear here</Text>
+          </View>
+        )}
       </View>
     </View>
   );
-}
+};
+
+export default Profile;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 40,
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  statLabel: {
-    fontSize: 16,
-    color: '#444',
-    marginTop: 4,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    paddingBottom: 8,
-  },
-  tab: {
-    fontSize: 16,
-    color: '#666',
-  },
-  activeTab: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    color: '#999',
-    fontSize: 16,
-  },
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  header: { alignItems: 'center', marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold' },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  statBox: { alignItems: 'center' },
+  statLabel: { fontSize: 16, color: '#666' },
+  statNumber: { fontSize: 20, fontWeight: 'bold' },
+  tabsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 },
+  activeTab: { backgroundColor: '#ececec' },
+  tabText: { fontSize: 16 },
+  contentContainer: { flex: 1 },
+  placeholder: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  placeholderText: { color: '#888' },
 });
