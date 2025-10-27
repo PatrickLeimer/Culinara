@@ -1,251 +1,76 @@
 import React, { useState } from 'react';
-import { FontAwesome } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import MyRecipes from '../profile_tabs/myRecipes';
+import MealPlan from '../profile_tabs/mealPlan';
+// import Liked from '../profile_tabs/Liked'; // future tab
 
-import '../styles/app.css';
-import '../styles/recipes.css';
-
-export default function Profile() {
-  const [activeTab, setActiveTab] = useState('MyRecipes');
-  const [recipes, setRecipes] = useState([
-    { name: 'Recipe 1', desc: 'Short description', ingredients: ['Ingredient 1'], tags: ['Tag 1'] },
-    { name: 'Recipe 2', desc: 'Short description', ingredients: ['Ingredient 2'], tags: ['Tag 2'] },
-  ]);
-
-  const [addEditModalVisible, setAddEditModalVisible] = useState(false);
-  const [viewModalVisible, setViewModalVisible] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
-
-  const [newRecipeName, setNewRecipeName] = useState('');
-  const [newRecipeDesc, setNewRecipeDesc] = useState('');
-  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  const ingredientsList = ['Ingredient 1', 'Ingredient 2', 'Ingredient 3'];
-  const tagsList = ['Tag 1', 'Tag 2', 'Tag 3'];
-
-  const openAddModal = () => {
-    setEditingIndex(null);
-    setNewRecipeName('');
-    setNewRecipeDesc('');
-    setSelectedIngredients([]);
-    setSelectedTags([]);
-    setAddEditModalVisible(true);
-  };
-
-  const openEditModal = (index: number) => {
-    const recipe = recipes[index];
-    setEditingIndex(index);
-    setNewRecipeName(recipe.name);
-    setNewRecipeDesc(recipe.desc);
-    setSelectedIngredients(recipe.ingredients);
-    setSelectedTags(recipe.tags);
-    setAddEditModalVisible(true);
-  };
-
-  const openViewModal = (index: number) => {
-    setViewingIndex(index);
-    setViewModalVisible(true);
-  };
-
-  const toggleSelection = (item: string, selected: string[], setSelected: any) => {
-    if (selected.includes(item)) {
-      setSelected(selected.filter((i) => i !== item));
-    } else {
-      setSelected([...selected, item]);
-    }
-  };
-
-  const handleSaveRecipe = () => {
-    const newRecipe = {
-      name: newRecipeName,
-      desc: newRecipeDesc,
-      ingredients: selectedIngredients,
-      tags: selectedTags,
-      // image: //TODO
-    };
-
-    if (editingIndex !== null) {
-      const updated = [...recipes];
-      updated[editingIndex] = newRecipe;
-      setRecipes(updated);
-    } else {
-      setRecipes([newRecipe, ...recipes]);
-    }
-    setAddEditModalVisible(false);
-  };
-
-  const handleDeleteRecipe = (index: number) => {
-    const updated = [...recipes];
-    updated.splice(index, 1);
-    setRecipes(updated);
-    setViewModalVisible(false);
-  };
+const Profile: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'MyRecipes' | 'Liked' | 'MealPlan'>('MyRecipes');
 
   return (
-    <div className="container">
+    <View style={styles.container}>
       {/* Header */}
-      <div className="header">
-        <div className="headerTitle">Hello, User</div>
-      </div>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Hello, User</Text>
+      </View>
 
       {/* Stats */}
-      <div className="statsContainer">
-        <div className="statBox">
-          <div className="statLabel">Friends</div>
-          <div className="statNumber">12</div>
-        </div>
-        <div className="statBox">
-          <div className="statLabel">Recipes</div>
-          <div className="statNumber">{recipes.length}</div>
-        </div>
-      </div>
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Friends</Text>
+          <Text style={styles.statNumber}>12</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Recipes</Text>
+          <Text style={styles.statNumber}>2</Text>
+        </View>
+      </View>
 
       {/* Tabs */}
-      <div className="tabsContainer">
-        {['MyRecipes', 'Liked', 'MealPlan'].map((tab) => (
-          <div
+      <View style={styles.tabsContainer}>
+        {(['MyRecipes', 'Liked', 'MealPlan'] as const).map((tab) => (
+          <TouchableOpacity
             key={tab}
-            className={`tab ${activeTab === tab ? 'activeTab' : ''}`}
-            onClick={() => setActiveTab(tab)}
+            style={[
+              styles.tab,
+              activeTab === tab && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab(tab)}
           >
-            {tab}
-          </div>
+            <Text style={styles.tabText}>{tab}</Text>
+          </TouchableOpacity>
         ))}
-      </div>
+      </View>
 
       {/* Content */}
-      <div className="contentContainer">
-        {activeTab === 'MyRecipes' ? (
-          <>
-            <div className="addButton" onClick={openAddModal}>
-              <FontAwesome name="plus" size={20} color="#fff" />
-            </div>
-
-            <div className="grid">
-              {recipes.map((recipe, index) => (
-                <div
-                  key={index}
-                  className="recipeCard"
-                  onClick={() => openViewModal(index)}
-                >
-                  <div className="recipeImage" />
-                  <div className="recipeTitle">{recipe.name}</div>
-                  <div className="recipeDesc">{recipe.desc}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="placeholder">
-            <div className="placeholderText">Content will appear here</div>
-          </div>
+      <View style={styles.contentContainer}>
+        {activeTab === 'MyRecipes' && <MyRecipes />}
+        {activeTab === 'MealPlan' && <MealPlan />}
+        {activeTab === 'Liked' && (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>Liked recipes will appear here</Text>
+          </View>
         )}
-      </div>
-
-      {/* View Recipe Modal */}
-      {viewModalVisible && viewingIndex !== null && (
-        <div className="modalOverlay">
-          <div className="modalContent">
-            <div className="modalTitle">{recipes[viewingIndex].name}</div>
-            <div className="modalDesc">{recipes[viewingIndex].desc}</div>
-            <div className="modalSubTitle">
-              Ingredients: {recipes[viewingIndex].ingredients.join(', ')}
-            </div>
-            <div className="modalSubTitle">
-              Tags: {recipes[viewingIndex].tags.join(', ')}
-            </div>
-
-            <div className="modalButtons">
-              <div
-                className="saveButton"
-                onClick={() => {
-                  setViewModalVisible(false);
-                  openEditModal(viewingIndex);
-                }}
-              >
-                Edit
-              </div>
-              <div
-                className="cancelButton deleteButton"
-                onClick={() => handleDeleteRecipe(viewingIndex)}
-              >
-                Delete
-              </div>
-              <div className="cancelButton" onClick={() => setViewModalVisible(false)}>
-                Close
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add/Edit Modal */}
-      {addEditModalVisible && (
-        <div className="modalOverlay">
-          <div className="modalContent">
-            <div className="modalTitle">
-              {editingIndex !== null ? 'Edit Recipe' : 'Create New Recipe'}
-            </div>
-
-            <input
-              className="input"
-              placeholder="Recipe Name"
-              value={newRecipeName}
-              onChange={(e) => setNewRecipeName(e.target.value)}
-            />
-            <textarea
-              className="input"
-              placeholder="Description"
-              value={newRecipeDesc}
-              onChange={(e) => setNewRecipeDesc(e.target.value)}
-            />
-
-            {/* Ingredients */}
-            <div className="label">Ingredients</div>
-            <div className="selectionContainer">
-              {ingredientsList.map((item) => (
-                <div
-                  key={item}
-                  className={`selectionItem ${
-                    selectedIngredients.includes(item) ? 'selectionItemSelected' : ''
-                  }`}
-                  onClick={() => toggleSelection(item, selectedIngredients, setSelectedIngredients)}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-
-            {/* Tags */}
-            <div className="label">Tags</div>
-            <div className="selectionContainer">
-              {tagsList.map((item) => (
-                <div
-                  key={item}
-                  className={`selectionItem ${
-                    selectedTags.includes(item) ? 'selectionItemSelected' : ''
-                  }`}
-                  onClick={() => toggleSelection(item, selectedTags, setSelectedTags)}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-
-            <div className="label">Image Upload: //TODO</div>
-
-            <div className="modalButtons">
-              <div className="cancelButton" onClick={() => setAddEditModalVisible(false)}>
-                Cancel
-              </div>
-              <div className="saveButton" onClick={handleSaveRecipe}>
-                Save
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </View>
+    </View>
   );
-}
+};
+
+export default Profile;
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  header: { alignItems: 'center', marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold' },
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  statBox: { alignItems: 'center' },
+  statLabel: { fontSize: 16, color: '#666' },
+  statNumber: { fontSize: 20, fontWeight: 'bold' },
+  tabsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 },
+  activeTab: { backgroundColor: '#ececec' },
+  tabText: { fontSize: 16 },
+  contentContainer: { flex: 1 },
+  placeholder: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  placeholderText: { color: '#888' },
+});
