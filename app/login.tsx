@@ -1,17 +1,34 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, Text, View } from 'react-native';
 import { useRouter } from 'expo-router'; // <-- Expo Router navigation
+import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     console.log('Email:', email);
     console.log('Password:', password);
+
+    if (!email || !password) {
+      alert('Error: Please enter both email and password');
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
     // Navigate to Explore tab (inside tabs)
     router.replace('/explore'); // replace so user can't go back to login
+
   };
 
   return (
@@ -41,8 +58,8 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity>
-        <Text style={styles.linkText}>Don’t have an account? Sign up</Text>
+      <TouchableOpacity onPress={() => router.push('/signup' as any)}>
+        <Text style={styles.linkText}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
     </View>
   );
