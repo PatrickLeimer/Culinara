@@ -59,18 +59,73 @@ const Profile: React.FC = () => {
 export default Profile;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  header: { alignItems: 'center', marginBottom: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold' },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
-  statBox: { alignItems: 'center' },
-  statLabel: { fontSize: 16, color: '#666' },
-  statNumber: { fontSize: 20, fontWeight: 'bold' },
-  tabsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
-  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 },
-  activeTab: { backgroundColor: '#ececec' },
-  tabText: { fontSize: 16 },
-  contentContainer: { flex: 1 },
-  placeholder: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  placeholderText: { color: '#888' },
+  container: { 
+    flex: 1, 
+    padding: 50, 
+    backgroundColor: '#bfcdb8ff' 
+  },
+  
+  header: { 
+    alignItems: 'center', 
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 20 
+  },
+
+  headerTitle: { 
+    fontSize: 22, 
+    letterSpacing: 1,
+    fontWeight: 'bold' 
+  },
+
+  statsContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    marginBottom: 20 
+  },
+
+  statBox: { 
+    alignItems: 'center' 
+  },
+
+  statLabel: { 
+    fontSize: 16, color: '#666' 
+  },
+
+  statNumber: { 
+    fontSize: 20, fontWeight: 'bold' 
+  },
+
+  tabsContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    marginBottom: 20, 
+    backgroundColor: '#bfcdb8ff'
+  },
+
+  tab: { 
+    paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 
+  },
+
+  activeTab: { 
+    backgroundColor: '#ececec' 
+  },
+
+  tabText: { 
+    fontSize: 16 
+  },
+
+  contentContainer: { 
+    flex: 1, 
+    backgroundColor: '#fff',
+  },
+
+  placeholder: { 
+    alignItems: 'center', justifyContent: 'center', flex: 1 
+  },
+
+  placeholderText: { 
+    color: '#888' 
+  },
 });

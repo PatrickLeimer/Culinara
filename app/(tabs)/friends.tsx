@@ -8,12 +8,12 @@ export default function FriendsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Friends</Text>
+        <Text style={styles.headerTitle}>FRIENDS</Text>
       </View>
 
       {/* No Friends Message */}
       <View style={styles.centerContent}>
-        <Text style={styles.noFriendsText}>No friends yet 😔</Text>
+        <Text style={styles.noFriendsText}>No friends yet :(</Text>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -32,17 +32,20 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#bfcdb8ff',
     paddingTop: 50,
     paddingHorizontal: 20,
   },
   header: {
-    alignItems: 'center', // center the header title
-    marginBottom: 20,
+    alignItems: 'center', 
+    marginTop: 20,
+    marginBottom: 10,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 22, 
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    color: '#000000ff', 
   },
   centerContent: {
     flex: 1,
