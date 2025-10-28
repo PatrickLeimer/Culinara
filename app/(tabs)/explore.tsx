@@ -59,7 +59,7 @@ export default function ExploreScreen() {
               </View>
               <View style={styles.recipeActions}>
                 <TouchableOpacity style={styles.iconButton}>
-                  <FontAwesome name="plus" size={20} color="#007AFF" />
+                  <FontAwesome name="plus" size={20} color="#5b8049ff" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconButton}>
                   <FontAwesome name="heart-o" size={20} color="#FF4D4D" />
@@ -76,25 +76,27 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#bfcdb8ff',
     paddingHorizontal: 16,
     paddingTop: 50,
   },
   header: {
     alignItems: 'center',
+    marginTop: 20,
     marginBottom: 10,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 1,
+    color: '#000000ff',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F3F3',
     borderRadius: 10,
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 10,
     paddingHorizontal: 12,
     height: 40,
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
   categoryLabel: {
     marginTop: 8,
     fontSize: 14,
-    color: '#333',
+    color: '#568A60',
   },
   recipesContainer: {
     marginTop: 10,
