@@ -1,11 +1,11 @@
 import React from 'react';
 import AuthPage from '@/components/AuthPage';
-import LoginForm from '@/components/LoginForm';
+import SignupForm from '@/components/SignupForm';
 
-export default function Login() {
+export default function SignUp() {
   return (
     <AuthPage>
-      <LoginForm />
+      <SignupForm />
     </AuthPage>
   );
 }
