@@ -122,6 +122,18 @@ const MyRecipes: React.FC = () => {
               </Text>
 
               <View style={styles.modalButtons}>
+
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setViewModalVisible(false)}>
+                  <Text style={styles.buttonText}>Close</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.cancelButton, styles.deleteButton]}
+                  onPress={() => handleDeleteRecipe(viewingIndex)}
+                >
+                  <Text style={styles.buttonText}>Delete</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={() => {
@@ -132,16 +144,6 @@ const MyRecipes: React.FC = () => {
                   <Text style={styles.buttonText}>Edit</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.cancelButton, styles.deleteButton]}
-                  onPress={() => handleDeleteRecipe(viewingIndex)}
-                >
-                  <Text style={styles.buttonText}>Delete</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setViewModalVisible(false)}>
-                  <Text style={styles.buttonText}>Close</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -221,12 +223,12 @@ const MyRecipes: React.FC = () => {
 export default MyRecipes;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 16, backgroundColor: '#bfcdb8ff' },
   addButton: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#5b8049ff',
     borderRadius: 30,
     padding: 16,
     zIndex: 2,
@@ -249,11 +251,11 @@ const styles = StyleSheet.create({
   modalSubTitle: { fontSize: 14, marginBottom: 4 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12 },
   cancelButton: { backgroundColor: '#ccc', padding: 10, borderRadius: 8 },
-  saveButton: { backgroundColor: '#007AFF', padding: 10, borderRadius: 8 },
+  saveButton: { backgroundColor: '#5b8049ff', padding: 10, borderRadius: 8 },
   deleteButton: { backgroundColor: '#e74c3c' },
   buttonText: { color: '#fff' },
 
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10 },
+  input: { borderWidth: 1, color: '#bfcdb8ff', borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10 },
   textArea: { height: 80 },
   label: { fontSize: 16, fontWeight: 'bold', marginTop: 8 },
   dropdownList: { maxHeight: 100, marginVertical: 8 },
@@ -265,8 +267,8 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
   },
   dropdownText: { fontSize: 16 },
-  selectedItem: { backgroundColor: '#e0f7ff' },
+  selectedItem: { backgroundColor: '#bfcdb8ff' },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 8 },
   tagItem: { padding: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 12, margin: 4 },
-  tagSelected: { backgroundColor: '#e0f7ff', borderColor: '#007AFF' },
+  tagSelected: { backgroundColor: '#e0f7ff', borderColor: '#5b8049ff' },
 });
