@@ -1,0 +1,375 @@
+// ============================================================================
+// FRIEND PROFILE SCREEN - View another user's profile
+// ============================================================================
+// This screen displays:
+// - Friend's profile information (name, username, email)
+// - Statistics (friend count, recipe count)
+// - Their recipes (read-only view)
+// ============================================================================
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+
+interface UserProfile {
+  id: string;
+  name: string | null;
+  lastname: string | null;
+  username: string | null;
+  email: string | null;
+}
+
+interface Recipe {
+  id: string;
+  Name: string | null;
+  Description: string | null;
+  Picture: string | null;
+  Tags: string[] | null;
+  created_at: string;
+}
+
+const FriendProfileScreen = () => {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipeCount, setRecipeCount] = useState<number>(0);
+  const [friendCount, setFriendCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      fetchFriendProfile();
+    }
+  }, [id]);
+
+  const fetchFriendProfile = async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      
+      // Fetch friend's profile information
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, name, lastname, username, email')
+        .eq('id', id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching friend profile:', profileError);
+        setLoading(false);
+        return;
+      }
+
+      setUserProfile(profile);
+
+      // Fetch friend's recipes
+      const { data: recipesData, error: recipesError } = await supabase
+        .from('Recipes')
+        .select('id, Name, Description, Picture, Tags, created_at')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false });
+
+      if (recipesError) {
+        console.error('Error fetching recipes:', recipesError);
+      } else {
+        setRecipes(recipesData || []);
+        setRecipeCount(recipesData?.length || 0);
+      }
+
+      // Count friend's friends
+      const { count: friendCountResult, error: friendError } = await supabase
+        .from('friendships')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${id},addressee_id.eq.${id}`);
+
+      if (friendError) {
+        console.error('Error counting friends:', friendError);
+      } else {
+        setFriendCount(friendCountResult || 0);
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDisplayName = () => {
+    if (!userProfile) return 'User';
+    if (userProfile.name && userProfile.lastname) {
+      return `${userProfile.name} ${userProfile.lastname}`;
+    }
+    if (userProfile.name) return userProfile.name;
+    if (userProfile.username) return userProfile.username;
+    if (userProfile.email) return userProfile.email.split('@')[0];
+    return 'User';
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#568A60" />
+      </View>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>User not found</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen 
+        options={{ 
+          headerShown: false,
+          title: ''
+        }} 
+      />
+      <View style={styles.container}>
+        {/* Header with back button */}
+        <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+          <FontAwesome name="arrow-left" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Profile Info */}
+        <View style={styles.profileSection}>
+          <Text style={styles.profileName}>{getDisplayName()}</Text>
+          {userProfile.username && (
+            <Text style={styles.profileUsername}>@{userProfile.username}</Text>
+          )}
+          {userProfile.email && (
+            <Text style={styles.profileEmail}>{userProfile.email}</Text>
+          )}
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Friends</Text>
+            <Text style={styles.statNumber}>{friendCount}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Recipes</Text>
+            <Text style={styles.statNumber}>{recipeCount}</Text>
+          </View>
+        </View>
+
+        {/* Recipes Section */}
+        <View style={styles.recipesSection}>
+          <Text style={styles.sectionTitle}>Recipes</Text>
+          {recipes.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No recipes yet</Text>
+            </View>
+          ) : (
+            <View style={styles.recipesGrid}>
+              {recipes.map((recipe) => (
+                <View key={recipe.id} style={styles.recipeCard}>
+                  {recipe.Picture ? (
+                    <View style={[styles.recipeImage, { backgroundColor: '#E0E0E0' }]} />
+                  ) : (
+                    <View style={styles.recipeImage} />
+                  )}
+                  <Text style={styles.recipeTitle} numberOfLines={1}>
+                    {recipe.Name || 'Untitled Recipe'}
+                  </Text>
+                  {recipe.Description && (
+                    <Text style={styles.recipeDesc} numberOfLines={2}>
+                      {recipe.Description}
+                    </Text>
+                  )}
+                  {recipe.Tags && recipe.Tags.length > 0 && (
+                    <View style={styles.tagsContainer}>
+                      {recipe.Tags.slice(0, 3).map((tag, index) => (
+                        <View key={index} style={styles.tag}>
+                          <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
+    </>
+  );
+};
+
+export default FriendProfileScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#bfcdb8ff',
+    paddingTop: 50,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#bfcdb8ff',
+  },
+  backIcon: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  placeholder: {
+    width: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#000',
+  },
+  profileUsername: {
+    fontSize: 16,
+    color: '#568A60',
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: '#666',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  statBox: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 4,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  recipesSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#000',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  recipesGrid: {
+    gap: 15,
+  },
+  recipeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+  },
+  recipeImage: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  recipeTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#000',
+  },
+  recipeDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tag: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tagText: {
+    fontSize: 12,
+    color: '#568A60',
+  },
+  backButton: {
+    backgroundColor: '#568A60',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#d32f2f',
+    marginBottom: 20,
+  },
+});
+
