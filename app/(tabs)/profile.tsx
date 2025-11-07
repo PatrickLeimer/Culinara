@@ -184,7 +184,7 @@ const Profile: React.FC = () => {
     <View style={styles.container}>
       {/* Header - Shows user's name, username, email, and logout button */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{getDisplayName()} what ya cooking?</Text>
+        <Text style={styles.headerTitle}>{getDisplayName()}</Text>
         {/* Show username if available */}
         {userProfile?.username && (
           <Text style={styles.headerSubtitle}>@{userProfile.username}</Text>
