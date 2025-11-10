@@ -219,6 +219,7 @@ const Profile: React.FC = () => {
         </View>
       </View>
 
+
       {/* Tabs - Switch between MyRecipes, Liked, and MealPlan views */}
       <View style={styles.tabsContainer}>
         {(['MyRecipes', 'Liked', 'MealPlan'] as const).map((tab) => (
@@ -293,8 +294,8 @@ const styles = StyleSheet.create({
   },
 
   logoutButton: {
-    backgroundColor: '#d32f2f',
-    paddingHorizontal: 24,
+    backgroundColor: '#5b8049ff',
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
     marginTop: 12,
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
   },
 
   contentContainer: { 
-    flex: 1, 
+    flex: 1,
     backgroundColor: '#fff',
   },
 
