@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   recipeImage: { height: 120, backgroundColor: '#ccc', borderRadius: 8, marginBottom: 8 },
   recipeTitle: { fontSize: 18, fontWeight: 'bold' },
-  recipeDesc: { fontSize: 14, color: '#555' },
+  recipeDesc: { fontSize: 14, color: '#000' },
 
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 12, width: '85%' },

@@ -11,7 +11,7 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>EXPLORE</Text>
+        <Text style={styles.headerTitle}>Explore</Text>
       </View>
 
       {/* Search Bar */}
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: '#568A60',
+    fontWeight: '600',
   },
   recipesContainer: {
     marginTop: 10,
@@ -165,10 +166,11 @@ const styles = StyleSheet.create({
   recipeTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#000',
   },
   recipeDesc: {
     fontSize: 13,
-    color: '#666',
+    color: '#000',
   },
   recipeActions: {
     flexDirection: 'row',
