@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TextInput, ScrollView, TouchableOpacity, Modal, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, TextInput, ScrollView, TouchableOpacity, Modal, Image, DeviceEventEmitter } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import { Text } from '@/components/Themed';
 import { FontAwesome } from '@expo/vector-icons';
 
@@ -18,7 +19,8 @@ export default function ExploreScreen() {
     setSelectedRecipe(null);
   };
 
-  const recipes = [
+  // Local mock recipes (used as fallback / demo)
+  const initialMock = [
     {
       name: 'Green Goddess Smoothie',
       desc: 'A refreshing blender smoothie packed with spinach and banana.',
@@ -55,6 +57,72 @@ export default function ExploreScreen() {
       image: require('../../assets/images/mug_cake.png'),
     },
   ];
+
+  const [recipes, setRecipes] = useState<any[]>(initialMock);
+
+  // Map of local asset paths to require() so we can render images saved as DB paths
+  const assetMap: Record<string, any> = {
+    'assets/images/green_smoothie.png': require('../../assets/images/green_smoothie.png'),
+    'assets/images/chickpea_curry.png': require('../../assets/images/chickpea_curry.png'),
+    'assets/images/avocado_toast.png': require('../../assets/images/avocado_toast.png'),
+    'assets/images/lemon_chicken.png': require('../../assets/images/lemon_chicken.png'),
+    'assets/images/mug_cake.png': require('../../assets/images/mug_cake.png'),
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchPublicRecipes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('Recipes')
+          .select('id, Name, Description, Picture, Tags, created_at, user_id')
+          .eq('Public', true)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching public recipes:', error);
+          return;
+        }
+
+        let mapped: any[] = [];
+        if (data && data.length) {
+          mapped = data.map((d: any) => {
+            const pic = d.Picture || '';
+            const image = pic && typeof pic === 'string' && pic.startsWith('assets/') ? assetMap[pic] ?? '' : (pic || '');
+            return {
+              id: d.id,
+              name: d.Name,
+              desc: d.Description,
+              tags: d.Tags || [],
+              // DB may not have Ingredients column; fall back to empty array
+              ingredients: d.Ingredients || [],
+              image: image,
+              created_at: d.created_at,
+              user_id: d.user_id,
+            };
+          });
+        }
+
+        if (mounted) {
+          // Replace the displayed recipes with the fetched ones (avoid duplication on repeated fetch)
+          if (mapped.length) setRecipes(mapped);
+          else setRecipes(initialMock);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching public recipes:', err);
+      }
+    };
+
+    fetchPublicRecipes();
+
+    // Listen for cross-screen updates (e.g. when user creates/edits/deletes a recipe)
+    const sub = DeviceEventEmitter.addListener('recipesUpdated', fetchPublicRecipes);
+
+    return () => {
+      mounted = false;
+      try { sub.remove(); } catch (e) { /* ignore */ }
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -98,15 +166,19 @@ export default function ExploreScreen() {
         <Text style={styles.sectionTitle}>Recipes</Text>
         <View style={styles.recipesContainer}>
           {recipes.map((r, index) => (
-            <View key={index} style={styles.recipeBox}>
+              <View key={r.id ?? index} style={styles.recipeBox}>
               <TouchableOpacity style={styles.cardBody} activeOpacity={0.9} onPress={() => openRecipe(r)}>
                 {/* Image first */}
                 <View style={styles.recipeImageWrapper}>
-                  {r.image ? (
-                    <Image source={r.image} style={styles.recipeImageWide} />
-                  ) : (
-                    <View style={styles.recipeImageWide} />
-                  )}
+                    {r.image ? (
+                      typeof r.image === 'string' ? (
+                        <Image source={{ uri: r.image }} style={styles.recipeImageWide} />
+                      ) : (
+                        <Image source={r.image} style={styles.recipeImageWide} />
+                      )
+                    ) : (
+                      <View style={styles.recipeImageWide} />
+                    )}
 
                   {/* overlay buttons on image */}
                   <View style={styles.imageOverlayButtons} pointerEvents="box-none">
@@ -132,7 +204,11 @@ export default function ExploreScreen() {
               {selectedRecipe && (
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {selectedRecipe.image ? (
-                    <Image source={{ uri: selectedRecipe.image }} style={styles.modalImage} />
+                    typeof selectedRecipe.image === 'string' ? (
+                      <Image source={{ uri: selectedRecipe.image }} style={styles.modalImage} />
+                    ) : (
+                      <Image source={selectedRecipe.image} style={styles.modalImage} />
+                    )
                   ) : (
                     <View style={[styles.modalImage, { backgroundColor: '#eee' }]} />
                   )}

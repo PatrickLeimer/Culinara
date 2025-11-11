@@ -7,14 +7,22 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Switch,
+  Alert,
+  Image,
+  DeviceEventEmitter,
 } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 
 interface Recipe {
+  id?: string;
   name: string;
   desc: string;
   ingredients: string[];
   tags: string[];
+  visibility?: boolean; // true = public, false = private
+  Picture?: string | null;
 }
 
 type Props = {
@@ -32,10 +40,22 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   const [newRecipeDesc, setNewRecipeDesc] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newRecipeVisibility, setNewRecipeVisibility] = useState<boolean>(true);
+  const [newRecipePicture, setNewRecipePicture] = useState<string>('');
+  const [newRecipePictureRequire, setNewRecipePictureRequire] = useState<any | null>(null);
 
   const ingredientsList = ['Ingredient 1', 'Ingredient 2', 'Ingredient 3', 'Ingredient 4', 'Ingredient 5', 'Ingredient 6'];
   const tagsList = ['Healthy', 'Quick', 'Low-Budget', 'Vegan', 'Breakfast', 'Lunch', 'Dinner', 'Dessert'];
   const [newIngredient, setNewIngredient] = useState('');
+
+  // Local asset options (map to require sources for preview and a path string to store in DB)
+  const assetOptions = [
+    { key: 'green_smoothie', label: 'Green Smoothie', src: require('../../assets/images/green_smoothie.png'), path: 'assets/images/green_smoothie.png' },
+    { key: 'chickpea_curry', label: 'Chickpea Curry', src: require('../../assets/images/chickpea_curry.png'), path: 'assets/images/chickpea_curry.png' },
+    { key: 'avocado_toast', label: 'Avocado Toast', src: require('../../assets/images/avocado_toast.png'), path: 'assets/images/avocado_toast.png' },
+    { key: 'lemon_chicken', label: 'Lemon Chicken', src: require('../../assets/images/lemon_chicken.png'), path: 'assets/images/lemon_chicken.png' },
+    { key: 'mug_cake', label: 'Mug Cake', src: require('../../assets/images/mug_cake.png'), path: 'assets/images/mug_cake.png' },
+  ];
 
   const openAddModal = () => {
     setEditingIndex(null);
@@ -43,6 +63,9 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setNewRecipeDesc('');
     setSelectedIngredients([]);
     setSelectedTags([]);
+    setNewRecipeVisibility(true);
+    setNewRecipePicture('');
+    setNewRecipePictureRequire(null);
     setAddEditModalVisible(true);
   };
 
@@ -53,6 +76,16 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setNewRecipeDesc(recipe.desc);
     setSelectedIngredients(recipe.ingredients);
     setSelectedTags(recipe.tags);
+    setNewRecipeVisibility(recipe.visibility ?? true);
+    // If recipe has a Picture path saved from DB, set preview. We assume DB stores 'assets/images/...' path.
+    if ((recipe as any).Picture) {
+      setNewRecipePicture((recipe as any).Picture);
+      const mapped = assetOptions.find((a) => a.path === (recipe as any).Picture);
+      setNewRecipePictureRequire(mapped ? mapped.src : null);
+    } else {
+      setNewRecipePicture('');
+      setNewRecipePictureRequire(null);
+    }
     setAddEditModalVisible(true);
   };
 
@@ -61,28 +94,116 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setViewModalVisible(true);
   };
 
-  const handleSaveRecipe = () => {
+  const handleSaveRecipe = async () => {
     const newRecipe: Recipe = {
       name: newRecipeName,
       desc: newRecipeDesc,
       ingredients: selectedIngredients,
       tags: selectedTags,
+      visibility: newRecipeVisibility,
     };
-    if (editingIndex !== null) {
-      const updated = [...recipes];
-      updated[editingIndex] = newRecipe;
-      setRecipes(updated);
-    } else {
-      setRecipes([newRecipe, ...recipes]);
+
+    try {
+      // get current user id
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        Alert.alert('Error', 'Could not determine current user. Please log in again.');
+        return;
+      }
+
+      // If editing an existing recipe that has an id, perform UPDATE; otherwise INSERT
+      if (editingIndex !== null && (recipes[editingIndex] as any)?.id) {
+        const existingId = (recipes[editingIndex] as any).id;
+        const payloadUpdate = {
+          Name: newRecipe.name,
+          Description: newRecipe.desc,
+          Picture: newRecipePicture || (recipes[editingIndex] as any).Picture || '',
+          Tags: newRecipe.tags,
+          // Ingredients column not present in DB; keep locally but don't send to server
+          Public: !!newRecipe.visibility,
+        } as any;
+
+        const { data: updatedRow, error: updateError } = await supabase
+          .from('Recipes')
+          .update(payloadUpdate)
+          .eq('id', existingId)
+          .select('id, created_at')
+          .single();
+
+          if (updateError) {
+          console.error('Error updating recipe:', updateError);
+          Alert.alert('Error', 'Could not update recipe on server.');
+        } else {
+          const savedRecipe = { ...newRecipe, id: existingId, created_at: updatedRow?.created_at, Picture: payloadUpdate.Picture } as any;
+          const updated = [...recipes];
+          updated[editingIndex] = savedRecipe;
+          setRecipes(updated);
+          setAddEditModalVisible(false);
+          // notify other screens to refresh their recipe lists
+          try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) { /* no-op if emitter unavailable */ }
+        }
+      } else {
+        // Insert new recipe
+        const payload = {
+          Name: newRecipe.name,
+          Description: newRecipe.desc,
+          Picture: newRecipePicture || '',
+          Tags: newRecipe.tags,
+          // Do not send Ingredients column — it does not exist in DB schema
+          user_id: user.id,
+          Public: !!newRecipe.visibility,
+        } as any;
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('Recipes')
+          .insert(payload)
+          .select('id, created_at')
+          .single();
+
+        if (insertError) {
+          console.error('Error inserting recipe:', insertError);
+          Alert.alert('Error', 'Could not save recipe to server.');
+        } else {
+          const savedRecipe = { ...newRecipe, id: inserted?.id, created_at: inserted?.created_at, Picture: payload.Picture } as any;
+          setRecipes([savedRecipe, ...recipes]);
+          setAddEditModalVisible(false);
+          // notify other screens to refresh their recipe lists
+          try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) { /* no-op if emitter unavailable */ }
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error saving recipe:', err);
+      Alert.alert('Error', 'Unexpected error while saving recipe.');
     }
-    setAddEditModalVisible(false);
   };
 
   const handleDeleteRecipe = (index: number) => {
-    const updated = [...recipes];
-    updated.splice(index, 1);
-    setRecipes(updated);
-    setViewModalVisible(false);
+    const recipe = recipes[index] as any;
+    const proceedLocalDelete = () => {
+      const updated = [...recipes];
+      updated.splice(index, 1);
+      setRecipes(updated);
+      setViewModalVisible(false);
+    };
+
+    // If recipe exists in DB, delete from server first
+      if (recipe?.id) {
+      supabase
+        .from('Recipes')
+        .delete()
+        .eq('id', recipe.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error deleting recipe from server:', error);
+            Alert.alert('Error', 'Could not delete recipe from server.');
+          } else {
+            proceedLocalDelete();
+            try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) { /* no-op */ }
+          }
+        });
+    } else {
+      proceedLocalDelete();
+    }
   };
 
   const toggleSelection = (item: string, selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -99,13 +220,21 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
 
       {/* Recipe Grid */}
       <ScrollView contentContainerStyle={styles.grid}>
-        {recipes.map((recipe, index) => (
-          <TouchableOpacity key={index} style={styles.recipeCard} onPress={() => openViewModal(index)}>
-            <View style={styles.recipeImage} />
-            <Text style={styles.recipeTitle}>{recipe.name}</Text>
-            <Text style={styles.recipeDesc}>{recipe.desc}</Text>
-          </TouchableOpacity>
-        ))}
+        {recipes.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <FontAwesome name="book" size={48} color="#999" style={{ marginBottom: 16 }} />
+            <Text style={styles.emptyStateTitle}>No Recipes Yet</Text>
+            <Text style={styles.emptyStateText}>Start creating your first recipe to share with the community!</Text>
+          </View>
+        ) : (
+          recipes.map((recipe, index) => (
+            <TouchableOpacity key={(recipe as any).id ?? index} style={styles.recipeCard} onPress={() => openViewModal(index)}>
+              <View style={styles.recipeImage} />
+              <Text style={styles.recipeTitle}>{recipe.name}</Text>
+              <Text style={styles.recipeDesc}>{recipe.desc}</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
       {/* View Recipe Modal */}
@@ -226,6 +355,43 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               ))}
             </View>
 
+            {/* Picture selector (local assets) */}
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.label}>Picture</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                <View style={{ width: 90, height: 90, borderRadius: 8, backgroundColor: '#eee', overflow: 'hidden', marginRight: 12 }}>
+                  {newRecipePictureRequire ? (
+                    <Image source={newRecipePictureRequire} style={{ width: '100%', height: '100%' }} />
+                  ) : (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: '#888' }}>No image</Text>
+                    </View>
+                  )}
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {assetOptions.map((a) => (
+                    <TouchableOpacity key={a.key} onPress={() => { setNewRecipePicture(a.path); setNewRecipePictureRequire(a.src); }} style={{ marginRight: 8 }}>
+                      <Image source={a.src} style={{ width: 72, height: 72, borderRadius: 6, borderWidth: newRecipePicture === a.path ? 2 : 0, borderColor: '#5b8049ff' }} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 8 }}>
+              <Text style={styles.label}>Visibility</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ marginRight: 8 }}>{newRecipeVisibility ? 'Public' : 'Private'}</Text>
+                <Switch
+                  value={newRecipeVisibility}
+                  onValueChange={setNewRecipeVisibility}
+                  trackColor={{ false: '#ccc', true: '#5b8049ff' }}
+                  thumbColor={newRecipeVisibility ? '#fff' : '#fff'}
+                />
+              </View>
+            </View>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setAddEditModalVisible(false)}>
                 <Text style={styles.buttonText}>Cancel</Text>
@@ -264,6 +430,25 @@ const styles = StyleSheet.create({
   recipeImage: { height: 120, backgroundColor: '#ccc', borderRadius: 8, marginBottom: 8 },
   recipeTitle: { fontSize: 18, fontWeight: 'bold' },
   recipeDesc: { fontSize: 14, color: '#000' },
+
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
 
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 12, width: '85%' },

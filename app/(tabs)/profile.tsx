@@ -8,8 +8,8 @@
 // - Logout functionality
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, DeviceEventEmitter } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -36,15 +36,15 @@ const Profile: React.FC = () => {
   const [recipeCount, setRecipeCount] = useState<number>(0);                 // Count of user's recipes
   // Lifted recipes state so it persists across tab switches
   interface LocalRecipe {
+    id?: string;
     name: string;
     desc: string;
     ingredients: string[];
     tags: string[];
+    visibility?: boolean;
+    Picture?: string | null;
   }
-  const [recipes, setRecipes] = useState<LocalRecipe[]>([
-    { name: 'Recipe 1', desc: 'Short description', ingredients: ['Ingredient 1'], tags: ['Tag 1'] },
-    { name: 'Recipe 2', desc: 'Short description', ingredients: ['Ingredient 2'], tags: ['Tag 2'] },
-  ]);
+  const [recipes, setRecipes] = useState<LocalRecipe[]>([]);
   const [friendCount, setFriendCount] = useState<number>(0);                  // Count of user's friends
   const [loading, setLoading] = useState(true);                               // Loading state for initial data fetch
   const [loggingOut, setLoggingOut] = useState(false);                        // Loading state for logout process
@@ -57,7 +57,50 @@ const Profile: React.FC = () => {
   // On component mount, fetch all user profile data
   useEffect(() => {
     fetchUserProfile();
+
+    // Listen for recipe updates (from MyRecipes tab) and re-fetch recipes
+    const sub = DeviceEventEmitter.addListener('recipesUpdated', () => {
+      console.log('Profile: recipes updated event received, re-fetching...');
+      fetchUserProfile();
+    });
+
+    return () => {
+      try { sub.remove(); } catch (e) { /* ignore */ }
+    };
   }, []);
+
+  // Watch for auth state changes (e.g., logout/login) and refetch
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAndRefetch = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (mounted && user && userProfile === null) {
+        // User is logged in but we haven't loaded profile yet (or user changed)
+        console.log('Auth state changed, refetching profile...');
+        fetchUserProfile();
+      } else if (mounted && !user) {
+        // User logged out
+        console.log('User logged out, clearing state...');
+        setRecipes([]);
+        setUserProfile(null);
+        setRecipeCount(0);
+        setFriendCount(0);
+      }
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      if (mounted) {
+        checkAndRefetch();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      try { authListener?.subscription.unsubscribe(); } catch (e) { /* ignore */ }
+    };
+  }, [userProfile]);
 
   // ============================================================================
   // DATA FETCHING FUNCTIONS
@@ -103,6 +146,30 @@ const Profile: React.FC = () => {
         console.error('Error counting recipes:', recipeError);
       } else {
         setRecipeCount(count || 0);
+      }
+
+      // Fetch user's own recipes so MyRecipes tab can render editable list
+      const { data: userRecipes, error: userRecipesError } = await supabase
+        .from('Recipes')
+        .select('id, Name, Description, Picture, Tags, Public, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (userRecipesError) {
+        console.error('Error fetching user recipes:', userRecipesError);
+        setRecipes([]);  // Clear recipes if fetch fails
+      } else if (userRecipes) {
+        const mapped = userRecipes.map((r: any) => ({
+          id: r.id,
+          name: r.Name,
+          desc: r.Description,
+          ingredients: r.Ingredients || [],
+          tags: r.Tags || [],
+          visibility: !!r.Public,
+          Picture: r.Picture ?? null,
+        }));
+        setRecipes(mapped);
+        setRecipeCount(mapped.length);
       }
 
       // Step 4: Count how many accepted friendships the user has
