@@ -17,12 +17,12 @@ interface Recipe {
   tags: string[];
 }
 
-const MyRecipes: React.FC = () => {
-  const [recipes, setRecipes] = useState<Recipe[]>([
-    { name: 'Recipe 1', desc: 'Short description', ingredients: ['Ingredient 1'], tags: ['Tag 1'] },
-    { name: 'Recipe 2', desc: 'Short description', ingredients: ['Ingredient 2'], tags: ['Tag 2'] },
-  ]);
+type Props = {
+  recipes: Recipe[];
+  setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
+};
 
+const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   const [addEditModalVisible, setAddEditModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -209,7 +209,6 @@ const MyRecipes: React.FC = () => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            
 
             <Text style={styles.label}>Tags</Text>
             <View style={styles.tagsContainer}>
@@ -264,7 +263,7 @@ const styles = StyleSheet.create({
   },
   recipeImage: { height: 120, backgroundColor: '#ccc', borderRadius: 8, marginBottom: 8 },
   recipeTitle: { fontSize: 18, fontWeight: 'bold' },
-  recipeDesc: { fontSize: 14, color: '#555' },
+  recipeDesc: { fontSize: 14, color: '#000' },
 
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 12, width: '85%' },

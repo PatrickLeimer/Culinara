@@ -10,11 +10,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import MyRecipes from '../profile_tabs/myRecipes';
 import MealPlan from '../profile_tabs/mealPlan';
-// import Liked from '../profile_tabs/Liked'; // future tab
+import GroceryList from '../profile_tabs/groceryList';
+import LikedRecipes from '../profile_tabs/likedRecipes';
 
 // UserProfile interface - represents the current user's profile data
 interface UserProfile {
@@ -28,9 +30,21 @@ const Profile: React.FC = () => {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
-  const [activeTab, setActiveTab] = useState<'MyRecipes' | 'Liked' | 'MealPlan'>('MyRecipes');  // Which tab is currently active
+  // Use internal tab ids (short) and render labels/icons separately so display text and logic are decoupled
+  const [activeTab, setActiveTab] = useState<'myRecipes' | 'liked' | 'mealPlan' | 'groceries'>('myRecipes');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);  // Current user's profile data
   const [recipeCount, setRecipeCount] = useState<number>(0);                 // Count of user's recipes
+  // Lifted recipes state so it persists across tab switches
+  interface LocalRecipe {
+    name: string;
+    desc: string;
+    ingredients: string[];
+    tags: string[];
+  }
+  const [recipes, setRecipes] = useState<LocalRecipe[]>([
+    { name: 'Recipe 1', desc: 'Short description', ingredients: ['Ingredient 1'], tags: ['Tag 1'] },
+    { name: 'Recipe 2', desc: 'Short description', ingredients: ['Ingredient 2'], tags: ['Tag 2'] },
+  ]);
   const [friendCount, setFriendCount] = useState<number>(0);                  // Count of user's friends
   const [loading, setLoading] = useState(true);                               // Loading state for initial data fetch
   const [loggingOut, setLoggingOut] = useState(false);                        // Loading state for logout process
@@ -222,30 +236,32 @@ const Profile: React.FC = () => {
 
       {/* Tabs - Switch between MyRecipes, Liked, and MealPlan views */}
       <View style={styles.tabsContainer}>
-        {(['MyRecipes', 'Liked', 'MealPlan'] as const).map((tab) => (
+        {/* map internal ids to label or icon */}
+        {[
+          { id: 'myRecipes', label: 'My Recipes' },
+          { id: 'mealPlan', label: 'Meal Plan' },
+          { id: 'liked', icon: <FontAwesome name="heart-o" size={18} color="#FF4D4D" /> },
+          { id: 'groceries', icon: <FontAwesome name="shopping-basket" size={18} color="#5b8049ff" /> },
+        ].map((tab) => (
           <TouchableOpacity
-            key={tab}
+            key={tab.id}
             style={[
               styles.tab,
-              activeTab === tab && styles.activeTab,  // Highlight active tab
+              activeTab === (tab.id as any) && styles.activeTab,
             ]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => setActiveTab(tab.id as any)}
           >
-            <Text style={styles.tabText}>{tab}</Text>
+            {tab.icon ?? <Text style={styles.tabText}>{tab.label}</Text>}
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Content - Render the appropriate tab content based on activeTab state */}
       <View style={styles.contentContainer}>
-        {activeTab === 'MyRecipes' && <MyRecipes />}
-        {activeTab === 'MealPlan' && <MealPlan />}
-        {activeTab === 'Liked' && (
-          // Placeholder for future "Liked" tab functionality
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>Liked recipes will appear here</Text>
-          </View>
-        )}
+  {activeTab === 'myRecipes' && <MyRecipes recipes={recipes} setRecipes={setRecipes} />}
+  {activeTab === 'mealPlan' && <MealPlan />}
+  {activeTab === 'groceries' && <GroceryList />}
+  {activeTab === 'liked' && <LikedRecipes />}
       </View>
     </View>
   );
@@ -329,28 +345,33 @@ const styles = StyleSheet.create({
     fontSize: 20, fontWeight: 'bold' 
   },
 
-  tabsContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    marginBottom: 20, 
-    backgroundColor: '#bfcdb8ff'
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: '#bfcdb8ff',
+    flexWrap: 'nowrap', // keep all tabs on a single line
   },
 
-  tab: { 
-    paddingVertical: 8, paddingHorizontal: 16, borderRadius: 10 
+  tab: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    marginHorizontal: 4,
   },
 
-  activeTab: { 
-    backgroundColor: '#ececec' 
+  activeTab: {
+    backgroundColor: '#ececec',
   },
 
-  tabText: { 
-    fontSize: 16 
+  tabText: {
+    fontSize: 15,
   },
 
   contentContainer: { 
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
 
   placeholder: { 

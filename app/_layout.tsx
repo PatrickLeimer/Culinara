@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { LikesProvider } from '@/components/LikesContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -49,7 +50,8 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <LikesProvider>
+        <Stack>
         {/* Login screen outside the tabs */}
         <Stack.Screen name="login" options={{ headerShown: false }} />
         
@@ -69,7 +71,8 @@ function RootLayoutNav() {
           }} 
         />
 
-      </Stack>
+        </Stack>
+      </LikesProvider>
     </ThemeProvider>
   );
 }
