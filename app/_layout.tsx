@@ -59,6 +59,16 @@ function RootLayoutNav() {
         {/* Bottom tabs */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
+        {/* User profile screen - hide tabs, show header */}
+        <Stack.Screen 
+          name="user/[id]" 
+          options={{ 
+            headerShown: false,
+            presentation: 'card',
+            animation: 'slide_from_right'
+          }} 
+        />
+
       </Stack>
     </ThemeProvider>
   );

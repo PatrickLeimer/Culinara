@@ -34,7 +34,8 @@ const MyRecipes: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const ingredientsList = ['Ingredient 1', 'Ingredient 2', 'Ingredient 3', 'Ingredient 4', 'Ingredient 5', 'Ingredient 6'];
-  const tagsList = ['Tag 1', 'Tag 2', 'Tag 3'];
+  const tagsList = ['Healthy', 'Quick', 'Low-Budget', 'Vegan', 'Breakfast', 'Lunch', 'Dinner', 'Dessert'];
+  const [newIngredient, setNewIngredient] = useState('');
 
   const openAddModal = () => {
     setEditingIndex(null);
@@ -173,21 +174,42 @@ const MyRecipes: React.FC = () => {
             />
 
             <Text style={styles.label}>Ingredients</Text>
+
+            {/* Add new ingredient */}
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                placeholder="Add new ingredient"
+                value={newIngredient}
+                onChangeText={setNewIngredient}
+              />
+              <TouchableOpacity
+                style={[styles.saveButton, { marginLeft: 8, paddingHorizontal: 12 }]}
+                onPress={() => {
+                  if (newIngredient.trim() && !selectedIngredients.includes(newIngredient.trim())) {
+                    setSelectedIngredients([...selectedIngredients, newIngredient.trim()]);
+                    setNewIngredient('');
+                  }
+                }}
+              >
+                <Text style={styles.buttonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Ingredient selection list */}
             <ScrollView style={styles.dropdownList}>
-              {ingredientsList.map((item) => (
+              {selectedIngredients.map((item) => (
                 <TouchableOpacity
                   key={item}
-                  style={[
-                    styles.dropdownItem,
-                    selectedIngredients.includes(item) && styles.selectedItem,
-                  ]}
+                  style={[styles.dropdownItem, styles.selectedItem]}
                   onPress={() => toggleSelection(item, selectedIngredients, setSelectedIngredients)}
                 >
                   <Text style={styles.dropdownText}>{item}</Text>
-                  {selectedIngredients.includes(item) && <Text>✓</Text>}
+                  <Text>✓</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
+            
 
             <Text style={styles.label}>Tags</Text>
             <View style={styles.tagsContainer}>
@@ -223,14 +245,14 @@ const MyRecipes: React.FC = () => {
 export default MyRecipes;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#bfcdb8ff' },
+  container: { flex: 1, padding: 8, backgroundColor: '#bfcdb8ff' },
   addButton: {
     position: 'absolute',
     bottom: 24,
     right: 24,
     backgroundColor: '#5b8049ff',
     borderRadius: 30,
-    padding: 16,
+    padding: 12,
     zIndex: 2,
   },
   grid: { paddingBottom: 100 },
