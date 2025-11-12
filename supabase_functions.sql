@@ -167,3 +167,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- ============================================
+-- GROCERY LIST TABLE
+-- Stores user grocery items with optional expiration date
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.groceries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  amount text,
+  in_pantry boolean DEFAULT false,
+  expires_at timestamptz,
+  ingredients text[] DEFAULT ARRAY[]::text[],
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS on groceries
+ALTER TABLE public.groceries ENABLE ROW LEVEL SECURITY;
+
+-- Policy: users can manage their own grocery items
+CREATE POLICY "Users can manage own groceries"
+  ON public.groceries FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+

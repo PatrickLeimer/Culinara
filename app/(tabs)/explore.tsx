@@ -1,9 +1,11 @@
 import React from 'react';
 import { StyleSheet, View, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/Themed';
+import { useLikes } from '@/components/LikesContext';
 import { FontAwesome } from '@expo/vector-icons';
 
 export default function ExploreScreen() {
+  const { like, unlike, isLiked } = useLikes();
   const categories = ['Healthy', 'Quick', 'Low-Budget', 'Lunch', 'Dinner', 'Vegan', 'Dessert'];
   const recipes = Array(6).fill(0);
 
@@ -61,8 +63,20 @@ export default function ExploreScreen() {
                 <TouchableOpacity style={styles.iconButton}>
                   <FontAwesome name="plus" size={20} color="#5b8049ff" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
-                  <FontAwesome name="heart-o" size={20} color="#FF4D4D" />
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => {
+                    const id = index; // stable id for demo list
+                    const name = `Recipe ${index + 1}`;
+                    const desc = 'Short description here';
+                    if (isLiked(id)) {
+                      unlike(id);
+                    } else {
+                      like({ id, name, desc });
+                    }
+                  }}
+                >
+                  <FontAwesome name={isLiked(index) ? 'heart' : 'heart-o'} size={20} color="#FF4D4D" />
                 </TouchableOpacity>
               </View>
             </View>
