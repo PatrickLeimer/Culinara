@@ -3,6 +3,7 @@ import { StyleSheet, View, TextInput, ScrollView, TouchableOpacity, Modal, Image
 import { supabase } from '@/lib/supabase';
 import { Text } from '@/components/Themed';
 import { FontAwesome } from '@expo/vector-icons';
+import RecipeCard from '../profile_tabs/recipeCard';
 
 export default function ExploreScreen() {
   const categories = ['Healthy', 'Quick', 'Low-Budget', 'Lunch', 'Dinner', 'Vegan', 'Dessert'];
@@ -22,6 +23,7 @@ export default function ExploreScreen() {
   // Local mock recipes (used as fallback / demo)
   const initialMock = [
     {
+      id: 'mock-1',
       name: 'Green Goddess Smoothie',
       desc: 'A refreshing blender smoothie packed with spinach and banana.',
       ingredients: ['Spinach', 'Banana', 'Almond milk', 'Chia seeds', 'Honey'],
@@ -29,6 +31,7 @@ export default function ExploreScreen() {
       image: require('../../assets/images/green_smoothie.png'),
     },
     {
+      id: 'mock-2',
       name: '15-min Chickpea Curry',
       desc: 'A spicy, budget-friendly vegan curry served with rice.',
       ingredients: ['Chickpeas', 'Tomato', 'Onion', 'Curry powder', 'Garlic'],
@@ -36,6 +39,7 @@ export default function ExploreScreen() {
       image: require('../../assets/images/chickpea_curry.png'),
     },
     {
+      id: 'mock-3',
       name: 'Avocado Toast Deluxe',
       desc: 'Creamy avocado on toasted sourdough with chili flakes.',
       ingredients: ['Sourdough', 'Avocado', 'Lemon', 'Chili flakes', 'Olive oil'],
@@ -43,6 +47,7 @@ export default function ExploreScreen() {
       image: require('../../assets/images/avocado_toast.png'),
     },
     {
+      id: 'mock-4',
       name: 'One-Pan Lemon Chicken',
       desc: 'Simple roasted chicken with lemon and herbs, easy cleanup.',
       ingredients: ['Chicken thighs', 'Lemon', 'Rosemary', 'Potatoes', 'Olive oil'],
@@ -50,6 +55,7 @@ export default function ExploreScreen() {
       image: require('../../assets/images/lemon_chicken.png'),
     },
     {
+      id: 'mock-5',
       name: 'Chocolate Mug Cake',
       desc: 'Single-serving dessert ready in 2 minutes in the microwave.',
       ingredients: ['Flour', 'Cocoa powder', 'Sugar', 'Egg', 'Milk'],
@@ -94,7 +100,6 @@ export default function ExploreScreen() {
               name: d.Name,
               desc: d.Description,
               tags: d.Tags || [],
-              // DB may not have Ingredients column; fall back to empty array
               ingredients: d.Ingredients || [],
               image: image,
               created_at: d.created_at,
@@ -104,7 +109,6 @@ export default function ExploreScreen() {
         }
 
         if (mounted) {
-          // Replace the displayed recipes with the fetched ones (avoid duplication on repeated fetch)
           if (mapped.length) setRecipes(mapped);
           else setRecipes(initialMock);
         }
@@ -115,7 +119,6 @@ export default function ExploreScreen() {
 
     fetchPublicRecipes();
 
-    // Listen for cross-screen updates (e.g. when user creates/edits/deletes a recipe)
     const sub = DeviceEventEmitter.addListener('recipesUpdated', fetchPublicRecipes);
 
     return () => {
@@ -123,6 +126,16 @@ export default function ExploreScreen() {
       try { sub.remove(); } catch (e) { /* ignore */ }
     };
   }, []);
+
+  const handlePlusPress = (recipe: any) => {
+    console.log('Add to meal plan:', recipe.name);
+    // TODO: Implement add to meal plan functionality
+  };
+
+  const handleHeartPress = (recipe: any) => {
+    console.log('Like recipe:', recipe.name);
+    // TODO: Implement like functionality
+  };
 
   return (
     <View style={styles.container}>
@@ -166,38 +179,18 @@ export default function ExploreScreen() {
         <Text style={styles.sectionTitle}>Recipes</Text>
         <View style={styles.recipesContainer}>
           {recipes.map((r, index) => (
-              <View key={r.id ?? index} style={styles.recipeBox}>
-              <TouchableOpacity style={styles.cardBody} activeOpacity={0.9} onPress={() => openRecipe(r)}>
-                {/* Image first */}
-                <View style={styles.recipeImageWrapper}>
-                    {r.image ? (
-                      typeof r.image === 'string' ? (
-                        <Image source={{ uri: r.image }} style={styles.recipeImageWide} />
-                      ) : (
-                        <Image source={r.image} style={styles.recipeImageWide} />
-                      )
-                    ) : (
-                      <View style={styles.recipeImageWide} />
-                    )}
-
-                  {/* overlay buttons on image */}
-                  <View style={styles.imageOverlayButtons} pointerEvents="box-none">
-                    <TouchableOpacity style={styles.overlayCircle}>
-                      <FontAwesome name="plus" size={16} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.overlayOutline}>
-                      <FontAwesome name="heart" size={16} color="#FF4D4D" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <Text style={styles.recipeTitle}>{r.name}</Text>
-                <Text style={styles.recipeDesc} numberOfLines={3} ellipsizeMode="tail">{r.desc}</Text>
-              </TouchableOpacity>
-            </View>
+            <RecipeCard
+              key={r.id ?? index}
+              recipe={r}
+              onPress={() => openRecipe(r)}
+              showOverlayButtons={true}
+              onPlusPress={() => handlePlusPress(r)}
+              onHeartPress={() => handleHeartPress(r)}
+            />
           ))}
         </View>
-        {/* Detail modal */}
+
+        {/* Detail Modal */}
         <Modal visible={modalVisible} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -304,116 +297,6 @@ const styles = StyleSheet.create({
   recipesContainer: {
     marginTop: 10,
   },
-  recipeBox: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 15,
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
-    alignItems: 'stretch',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  recipeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  recipeImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
-    backgroundColor: '#E0E0E0',
-    marginRight: 12,
-  },
-  recipeText: {
-    flex: 1,
-  },
-  cardBody: {
-    flex: 1,
-    paddingBottom: 8,
-  },
-  recipeImageWide: {
-    width: '100%',
-    height: 220,
-    borderRadius: 10,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 8,
-  },
-  recipeImageWrapper: {
-    position: 'relative',
-    width: '100%',
-  },
-  imageOverlayButtons: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  overlayCircle: {
-    backgroundColor: 'rgba(91,128,73,0.95)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  overlayOutline: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-    borderWidth: 1,
-    borderColor: '#FF4D4D',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  actionButtonsInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  smallButton: {
-    backgroundColor: '#5b8049ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  smallOutlineButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#FF4D4D',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  recipeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
-  recipeDesc: {
-    fontSize: 13,
-    color: '#000',
-  },
-  recipeActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconButton: {
-    marginLeft: 12,
-  },
   tagRow: {
     flexDirection: 'row',
     marginTop: 8,
@@ -436,31 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#444',
-  },
-  ingredientsText: {
-    fontSize: 13,
-    color: '#666',
-    maxWidth: 200,
-  },
-  circleButton: {
-    backgroundColor: '#5b8049ff',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  heartButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#FF4D4D',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
   modalOverlay: {
     flex: 1,
