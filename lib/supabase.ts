@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto';
+// @ts-ignore: Missing type declarations for '@react-native-async-storage/async-storage' in this environment
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
