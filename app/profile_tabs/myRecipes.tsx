@@ -344,12 +344,14 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               <TextInput
                 style={styles.input}
                 placeholder="Recipe Name"
+                placeholderTextColor={'#999'}
                 value={newRecipeName}
                 onChangeText={setNewRecipeName}
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Description"
+                placeholderTextColor={'#999'}
                 value={newRecipeDesc}
                 onChangeText={setNewRecipeDesc}
                 multiline
@@ -360,6 +362,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
                   placeholder="Add new ingredient"
+                  placeholderTextColor={'#999'}
                   value={newIngredient}
                   onChangeText={setNewIngredient}
                 />
@@ -602,7 +605,7 @@ const styles = StyleSheet.create({
 
   input: { borderWidth: 1, color: '#333', borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10, backgroundColor: '#fff' },
   textArea: { height: 80, textAlignVertical: 'top' },
-  label: { fontSize: 16, fontWeight: 'bold', marginTop: 8, color: '#333' },
+  label: { fontSize: 16, fontWeight: 'bold', marginTop: 8, color: '#333', marginBottom: 8 },
   dropdownList: { maxHeight: 100, marginVertical: 8 },
   dropdownItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 8, borderBottomWidth: 1, borderColor: '#eee' },
   dropdownText: { fontSize: 16, color: '#333' },

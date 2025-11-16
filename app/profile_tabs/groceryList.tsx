@@ -90,7 +90,7 @@ export default function GroceryList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginTop: 8 },
+  container: { flex: 1, marginTop: 8, padding: 24 },
   addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   input: {
     borderWidth: 1,
