@@ -66,17 +66,16 @@ export default function ExploreScreen() {
                 <TouchableOpacity
                   style={styles.iconButton}
                   onPress={() => {
-                    const id = index; // stable id for demo list
-                    const name = `Recipe ${index + 1}`;
-                    const desc = 'Short description here';
-                    if (isLiked(id)) {
-                      unlike(id);
+                    const id = String(index); // use string ids to match LikesContext
+                    const idStr = id;
+                    if (isLiked(idStr)) {
+                      unlike(idStr);
                     } else {
-                      like({ id, name, desc });
+                      like({ recipe_id: idStr });
                     }
                   }}
                 >
-                  <FontAwesome name={isLiked(index) ? 'heart' : 'heart-o'} size={20} color="#FF4D4D" />
+                  <FontAwesome name={isLiked(String(index)) ? 'heart' : 'heart-o'} size={20} color="#FF4D4D" />
                 </TouchableOpacity>
               </View>
             </View>

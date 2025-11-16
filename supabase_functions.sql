@@ -191,4 +191,75 @@ CREATE POLICY "Users can manage own groceries"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- ============================================
+-- Recipe likes: table, RLS, RPCs and counts view
+-- ============================================
+
+-- Ensure gen_random_uuid() is available
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Table: recipe_likes (one row per user + recipe)
+CREATE TABLE IF NOT EXISTS public."Recipe_Likes" (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  recipe_id uuid NOT NULL REFERENCES public."Recipes"(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (user_id, recipe_id)
+);
+
+ALTER TABLE public."Recipe_Likes" ENABLE ROW LEVEL SECURITY;
+
+-- Allow clients to read likes (so they can display counts and whether current user liked a recipe).
+CREATE POLICY recipe_likes_select_all
+  ON public."Recipe_Likes"
+  FOR SELECT
+  USING (true);
+
+-- Only allow inserts/updates/deletes for the authenticated owner
+CREATE POLICY recipe_likes_insert_own
+  ON public."Recipe_Likes" FOR INSERT
+  WITH CHECK (auth.uid()::uuid = user_id);
+
+CREATE POLICY recipe_likes_update_own
+  ON public."Recipe_Likes" FOR UPDATE
+  USING (auth.uid()::uuid = user_id)
+  WITH CHECK (auth.uid()::uuid = user_id);
+
+CREATE POLICY recipe_likes_delete_own
+  ON public."Recipe_Likes" FOR DELETE
+  USING (auth.uid()::uuid = user_id);
+
+-- RPC to like a recipe (idempotent) against the legacy table
+CREATE OR REPLACE FUNCTION public.like_recipe(p_recipe_id uuid)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO public."Recipe_Likes" (user_id, recipe_id)
+  VALUES (auth.uid()::uuid, p_recipe_id)
+  ON CONFLICT (user_id, recipe_id) DO NOTHING;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC to unlike a recipe
+CREATE OR REPLACE FUNCTION public.unlike_recipe(p_recipe_id uuid)
+RETURNS void AS $$
+BEGIN
+  DELETE FROM public."Recipe_Likes"
+  WHERE user_id = auth.uid()::uuid
+    AND recipe_id = p_recipe_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute to authenticated role so logged-in clients can call RPCs
+GRANT EXECUTE ON FUNCTION public.like_recipe(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.unlike_recipe(uuid) TO authenticated;
+
+-- View with per-recipe like counts (legacy naming preserved)
+CREATE OR REPLACE VIEW public."Recipe_Like_Counts" AS
+SELECT recipe_id, COUNT(*) AS like_count
+FROM public."Recipe_Likes"
+GROUP BY recipe_id;
+
+-- Index to speed lookups
+CREATE INDEX IF NOT EXISTS idx_Recipe_Likes_recipe_id ON public."Recipe_Likes" (recipe_id);
+
 

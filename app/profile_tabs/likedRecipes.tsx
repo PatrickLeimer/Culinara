@@ -16,15 +16,15 @@ export default function LikedRecipes() {
 	return (
 		<ScrollView contentContainerStyle={styles.container}>
 			{likes.map((r) => (
-				<View key={String(r.id)} style={styles.card}>
-					<View style={styles.info}>
-						<Text style={styles.title}>{r.name}</Text>
-						{r.desc ? <Text style={styles.desc}>{r.desc}</Text> : null}
+					<View key={String(r.id)} style={styles.card}>
+						<View style={styles.info}>
+							<Text style={styles.title}>Recipe {r.recipe_id}</Text>
+							{r.created_at ? <Text style={styles.desc}>Liked {new Date(r.created_at).toLocaleString()}</Text> : null}
+						</View>
+						<TouchableOpacity style={styles.unlike} onPress={() => unlike(String(r.recipe_id))}>
+							<Text style={styles.unlikeText}>Remove</Text>
+						</TouchableOpacity>
 					</View>
-					<TouchableOpacity style={styles.unlike} onPress={() => unlike(r.id)}>
-						<Text style={styles.unlikeText}>Remove</Text>
-					</TouchableOpacity>
-				</View>
 			))}
 		</ScrollView>
 	);
