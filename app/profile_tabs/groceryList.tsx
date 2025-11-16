@@ -43,12 +43,14 @@ export default function GroceryList() {
         <TextInput
           style={[styles.input, { flex: 2 }]}
           placeholder="Item Name"
+          placeholderTextColor={'#999'}
           value={newGroceryItem.name}
           onChangeText={text => setNewGroceryItem({ ...newGroceryItem, name: text })}
         />
         <TextInput
           style={[styles.input, { flex: 1 }]}
           placeholder="Amount"
+          placeholderTextColor={'#999'}
           value={newGroceryItem.amount}
           onChangeText={text => setNewGroceryItem({ ...newGroceryItem, amount: text })}
         />
@@ -90,11 +92,11 @@ export default function GroceryList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginTop: 8 },
+  container: { flex: 1, marginTop: 8, padding: 24 },
   addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#666',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
