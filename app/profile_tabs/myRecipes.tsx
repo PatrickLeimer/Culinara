@@ -122,6 +122,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         const payloadUpdate = {
           Name: newRecipe.name,
           Description: newRecipe.desc,
+          Recipe_Ingredients: newRecipe.ingredients,
           Picture: newRecipePicture || (recipes[editingIndex] as any).Picture || '',
           Tags: newRecipe.tags,
           Public: !!newRecipe.visibility,
@@ -149,6 +150,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         const payload = {
           Name: newRecipe.name,
           Description: newRecipe.desc,
+          Recipe_Ingredients: newRecipe.ingredients,
           Picture: newRecipePicture || '',
           Tags: newRecipe.tags,
           user_id: user.id,
@@ -344,30 +346,40 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               <TextInput
                 style={styles.input}
                 placeholder="Recipe Name"
+                placeholderTextColor={'#999'}
                 value={newRecipeName}
                 onChangeText={setNewRecipeName}
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Description"
+                placeholderTextColor={'#999'}
                 value={newRecipeDesc}
                 onChangeText={setNewRecipeDesc}
                 multiline
               />
 
               <Text style={styles.label}>Ingredients</Text>
-              <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', marginBottom: 8, marginTop: 8 }}>
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Add new ingredient"
+                  placeholder="Enter an ingredient"
+                  placeholderTextColor={'#999'}
                   value={newIngredient}
                   onChangeText={setNewIngredient}
+                  onSubmitEditing={() => {
+                    if (newIngredient.trim()) {
+                      setSelectedIngredients((prev) => [...prev, newIngredient.trim()]);
+                      setNewIngredient('');
+                    }
+                  }}
+                  returnKeyType="done"
                 />
                 <TouchableOpacity
                   style={[styles.saveButton, { marginLeft: 8, paddingHorizontal: 12 }]}
                   onPress={() => {
-                    if (newIngredient.trim() && !selectedIngredients.includes(newIngredient.trim())) {
-                      setSelectedIngredients([...selectedIngredients, newIngredient.trim()]);
+                    if (newIngredient.trim()) {
+                      setSelectedIngredients((prev) => [...prev, newIngredient.trim()]);
                       setNewIngredient('');
                     }
                   }}
@@ -376,18 +388,31 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.dropdownList}>
-                {selectedIngredients.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.dropdownItem, styles.selectedItem]}
-                    onPress={() => toggleSelection(item, selectedIngredients, setSelectedIngredients)}
-                  >
-                    <Text style={styles.dropdownText}>{item}</Text>
-                    <Text>✓</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <View style={{ marginBottom: 12 }}>
+                {selectedIngredients.length > 0 ? (
+                  selectedIngredients.map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#eaf2e9',
+                        padding: 10,
+                        borderRadius: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Text style={{ color: '#333' }}>• {item}</Text>
+                      <TouchableOpacity onPress={() => setSelectedIngredients(selectedIngredients.filter((i) => i !== item))}>
+                        <FontAwesome name="trash" size={16} color="#e74c3c" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={{ color: '#666', fontStyle: 'italic' }}>No ingredients added yet.</Text>
+                )}
+              </View>
+
 
               <Text style={styles.label}>Tags</Text>
               <View style={styles.tagsContainer}>
@@ -600,7 +625,7 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#5b8049ff', padding: 12, borderRadius: 8, flex: 1, marginLeft: 8 },
   buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 
-  input: { borderWidth: 1, color: '#333', borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10, backgroundColor: '#fff' },
+  input: { borderWidth: 1, color: '#cbc5c5ff', borderColor: '#787171ff', padding: 10, borderRadius: 8, marginBottom: 10, backgroundColor: '#fff' },
   textArea: { height: 80, textAlignVertical: 'top' },
   label: { fontSize: 16, fontWeight: 'bold', marginTop: 8, color: '#333' },
   dropdownList: { maxHeight: 100, marginVertical: 8 },
