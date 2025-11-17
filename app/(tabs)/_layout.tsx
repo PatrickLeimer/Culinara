@@ -7,7 +7,7 @@ import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 // Tab bar icon helper
 function TabBarIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+  return <FontAwesome size={28} style={{ marginBottom: -15 }} {...props} />;
 }
 
 export default function TabLayout() {
@@ -18,6 +18,14 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: useClientOnlyValue(false, true), // no top header for tabs
+
+        // Add these two lines to adjust spacing
+        tabBarLabelStyle: {
+          marginTop: 10, // increase to add more space between icon and label
+        },
+        // tabBarIconStyle: {
+        //   marginBottom: -2, // optional: adjust icon vertical position
+        // },
       }}
     >
       <Tabs.Screen
