@@ -16,6 +16,7 @@ interface RecipeCardProps {
   showOverlayButtons?: boolean; // Show + and heart buttons on image
   onPlusPress?: () => void;
   onHeartPress?: () => void;
+  isLiked?: boolean;
   assetMap?: Record<string, any>; // Map of asset paths to require()
 }
 
@@ -25,6 +26,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   showOverlayButtons = false,
   onPlusPress,
   onHeartPress,
+  isLiked = false,
   assetMap,
 }) => {
   // Determine which image to use (handles both myRecipes and explore formats)
@@ -77,7 +79,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
                 onHeartPress?.();
               }}
             >
-              <FontAwesome name="heart-o" size={16} color="#FF4D4D" />
+              <FontAwesome name={isLiked ? "heart" : "heart-o"} size={16} color="#FF4D4D" />
             </TouchableOpacity>
           </View>
         )}

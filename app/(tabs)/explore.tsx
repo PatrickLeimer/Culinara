@@ -199,6 +199,7 @@ export default function ExploreScreen() {
               showOverlayButtons={true}
               onPlusPress={() => handlePlusPress(r)}
               onHeartPress={() => handleHeartPress(r)}
+              isLiked={isLiked(String(r.id ?? ''))}
               assetMap={assetMap}
             />
           ))}
