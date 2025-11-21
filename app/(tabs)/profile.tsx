@@ -1,15 +1,9 @@
 // ============================================================================
 // PROFILE SCREEN - Component for displaying user profile information
 // ============================================================================
-// This screen shows:
-// - User's profile information (name, username, email)
-// - Statistics (friend count, recipe count)
-// - Tabs for viewing user's recipes, meal plans, and liked recipes
-// - Logout functionality
-// ============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, DeviceEventEmitter, ScrollView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -18,57 +12,80 @@ import MealPlan from '../profile_tabs/mealPlan';
 import GroceryList from '../profile_tabs/groceryList';
 import LikedRecipes from '../profile_tabs/likedRecipes';
 
-// UserProfile interface - represents the current user's profile data
 interface UserProfile {
-  name: string | null;        // User's first name (optional)
-  lastname: string | null;    // User's last name (optional)
-  username: string | null;    // User's username (optional)
-  email: string | null;       // User's email address (optional)
+  name: string | null;
+  lastname: string | null;
+  username: string | null;
+  email: string | null;
 }
 
 const Profile: React.FC = () => {
-  // ============================================================================
-  // STATE MANAGEMENT
-  // ============================================================================
-  // Use internal tab ids (short) and render labels/icons separately so display text and logic are decoupled
   const [activeTab, setActiveTab] = useState<'myRecipes' | 'liked' | 'mealPlan' | 'groceries'>('myRecipes');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);  // Current user's profile data
-  const [recipeCount, setRecipeCount] = useState<number>(0);                 // Count of user's recipes
-  // Lifted recipes state so it persists across tab switches
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [recipeCount, setRecipeCount] = useState<number>(0);
+  
   interface LocalRecipe {
+    id?: string;
     name: string;
     desc: string;
     ingredients: string[];
     tags: string[];
+    visibility?: boolean;
+    Picture?: string | null;
   }
-  const [recipes, setRecipes] = useState<LocalRecipe[]>([
-    { name: 'Recipe 1', desc: 'Short description', ingredients: ['Ingredient 1'], tags: ['Tag 1'] },
-    { name: 'Recipe 2', desc: 'Short description', ingredients: ['Ingredient 2'], tags: ['Tag 2'] },
-  ]);
-  const [friendCount, setFriendCount] = useState<number>(0);                  // Count of user's friends
-  const [loading, setLoading] = useState(true);                               // Loading state for initial data fetch
-  const [loggingOut, setLoggingOut] = useState(false);                        // Loading state for logout process
-  const router = useRouter();  // Router for navigation
+  const [recipes, setRecipes] = useState<LocalRecipe[]>([]);
+  const [friendCount, setFriendCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
 
-  // ============================================================================
-  // LIFECYCLE HOOKS
-  // ============================================================================
-  
-  // On component mount, fetch all user profile data
   useEffect(() => {
     fetchUserProfile();
+
+    const sub = DeviceEventEmitter.addListener('recipesUpdated', () => {
+      console.log('Profile: recipes updated event received, re-fetching...');
+      fetchUserProfile();
+    });
+
+    return () => {
+      try { sub.remove(); } catch (e) { /* ignore */ }
+    };
   }, []);
 
-  // ============================================================================
-  // DATA FETCHING FUNCTIONS
-  // ============================================================================
-  
-  // Fetch all user profile data including profile info, recipe count, and friend count
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAndRefetch = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (mounted && user && userProfile === null) {
+        console.log('Auth state changed, refetching profile...');
+        fetchUserProfile();
+      } else if (mounted && !user) {
+        console.log('User logged out, clearing state...');
+        setRecipes([]);
+        setUserProfile(null);
+        setRecipeCount(0);
+        setFriendCount(0);
+      }
+    };
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      if (mounted) {
+        checkAndRefetch();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      try { authListener?.subscription.unsubscribe(); } catch (e) { /* ignore */ }
+    };
+  }, [userProfile]);
+
   const fetchUserProfile = async () => {
     try {
       setLoading(true);
       
-      // Step 1: Get current authenticated user from Supabase Auth
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
@@ -77,13 +94,11 @@ const Profile: React.FC = () => {
         return;
       }
 
-      // Step 2: Fetch user profile details from the users table
-      // This gets additional info like name, username that's stored in the database
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('name, lastname, username, email')
-        .eq('id', user.id)  // Match the authenticated user's ID
-        .single();          // Expect only one result
+        .eq('id', user.id)
+        .single();
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
@@ -91,13 +106,10 @@ const Profile: React.FC = () => {
         setUserProfile(profile);
       }
 
-      // Step 3: Count how many recipes the user has created
-      // Uses count: 'exact' to get the total count without fetching all records
-      // head: true means we only want the count, not the actual data
       const { count, error: recipeError } = await supabase
         .from('Recipes')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);  // Only count recipes owned by this user
+        .eq('user_id', user.id);
 
       if (recipeError) {
         console.error('Error counting recipes:', recipeError);
@@ -105,14 +117,34 @@ const Profile: React.FC = () => {
         setRecipeCount(count || 0);
       }
 
-      // Step 4: Count how many accepted friendships the user has
-      // A friendship can be where the user is either the requester OR the addressee
-      // We count both cases where status is 'accepted'
+      const { data: userRecipes, error: userRecipesError } = await supabase
+        .from('Recipes')
+        .select('id, Name, Description, Picture, Tags, Public, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (userRecipesError) {
+        console.error('Error fetching user recipes:', userRecipesError);
+        setRecipes([]);
+      } else if (userRecipes) {
+        const mapped = userRecipes.map((r: any) => ({
+          id: r.id,
+          name: r.Name,
+          desc: r.Description,
+          ingredients: r.Ingredients || [],
+          tags: r.Tags || [],
+          visibility: !!r.Public,
+          Picture: r.Picture ?? null,
+        }));
+        setRecipes(mapped);
+        setRecipeCount(mapped.length);
+      }
+
       const { count: friendCountResult, error: friendError } = await supabase
         .from('friendships')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'accepted')  // Only count accepted friendships
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);  // User is either requester or addressee
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
 
       if (friendError) {
         console.error('Error counting friends:', friendError);
@@ -126,12 +158,6 @@ const Profile: React.FC = () => {
     }
   };
 
-  // ============================================================================
-  // HELPER FUNCTIONS
-  // ============================================================================
-  
-  // Get a display name for the current user
-  // Priority: Full name > First name > Username > Email prefix > "User"
   const getDisplayName = () => {
     if (!userProfile) return 'User';
     if (userProfile.name && userProfile.lastname) {
@@ -139,17 +165,10 @@ const Profile: React.FC = () => {
     }
     if (userProfile.name) return userProfile.name;
     if (userProfile.username) return userProfile.username;
-    if (userProfile.email) return userProfile.email.split('@')[0];  // Get part before @
+    if (userProfile.email) return userProfile.email.split('@')[0];
     return 'User';
   };
 
-  // ============================================================================
-  // USER INTERACTION FUNCTIONS
-  // ============================================================================
-  
-  // Handle logout with confirmation dialog
-  // Uses optimistic navigation - navigates immediately even if network call fails
-  // because Supabase clears the local session synchronously
   const handleLogout = async () => {
     Alert.alert(
       'Log Out',
@@ -165,15 +184,10 @@ const Profile: React.FC = () => {
           onPress: async () => {
             setLoggingOut(true);
             
-            // Sign out - this clears local session even if network fails
-            // We don't await this because we want to navigate immediately
             supabase.auth.signOut().catch((error) => {
-              // Log error but don't block - local session is still cleared
               console.warn('Logout network error (local session cleared):', error);
             });
             
-            // Navigate immediately - don't wait for network response
-            // The local session is cleared synchronously by Supabase
             router.replace('/login');
           },
         },
@@ -181,11 +195,6 @@ const Profile: React.FC = () => {
     );
   };
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-  
-  // Show loading spinner while fetching initial data
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -195,19 +204,16 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header - Shows user's name, username, email, and logout button */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{getDisplayName()}</Text>
-        {/* Show username if available */}
         {userProfile?.username && (
           <Text style={styles.headerSubtitle}>@{userProfile.username}</Text>
         )}
-        {/* Show email if available */}
         {userProfile?.email && (
           <Text style={styles.headerEmail}>{userProfile.email}</Text>
         )}
-        {/* Logout button - shows spinner while logging out */}
         <TouchableOpacity 
           style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]} 
           onPress={handleLogout}
@@ -221,7 +227,7 @@ const Profile: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Stats - Display friend count and recipe count */}
+      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Friends</Text>
@@ -233,10 +239,8 @@ const Profile: React.FC = () => {
         </View>
       </View>
 
-
-      {/* Tabs - Switch between MyRecipes, Liked, and MealPlan views */}
+      {/* Tabs */}
       <View style={styles.tabsContainer}>
-        {/* map internal ids to label or icon */}
         {[
           { id: 'myRecipes', label: 'My Recipes' },
           { id: 'mealPlan', label: 'Meal Plan' },
@@ -256,27 +260,28 @@ const Profile: React.FC = () => {
         ))}
       </View>
 
-      {/* Content - Render the appropriate tab content based on activeTab state */}
+      {/* Content */}
       <View style={styles.contentContainer}>
-  {activeTab === 'myRecipes' && <MyRecipes recipes={recipes} setRecipes={setRecipes} />}
-  {activeTab === 'mealPlan' && <MealPlan />}
-  {activeTab === 'groceries' && <GroceryList />}
-  {activeTab === 'liked' && <LikedRecipes />}
+        {activeTab === 'myRecipes' && <MyRecipes recipes={recipes} setRecipes={setRecipes} />}
+        {activeTab === 'mealPlan' && <MealPlan />}
+        {activeTab === 'groceries' && <GroceryList />}
+        {activeTab === 'liked' && <LikedRecipes />}
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
 export default Profile;
 
-// ============================================================================
-// STYLES
-// ============================================================================
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    padding: 50, 
     backgroundColor: '#bfcdb8ff' 
+  },
+  
+  scrollContent: {
+    paddingTop: 50,
+    paddingBottom: 30,
   },
   
   loadingContainer: {
@@ -287,7 +292,8 @@ const styles = StyleSheet.create({
   header: { 
     alignItems: 'center', 
     marginTop: 20,
-    marginBottom: 20 
+    marginBottom: 20,
+    paddingHorizontal: 10,
   },
 
   headerTitle: { 
@@ -330,7 +336,8 @@ const styles = StyleSheet.create({
   statsContainer: { 
     flexDirection: 'row', 
     justifyContent: 'space-around', 
-    marginBottom: 20 
+    marginBottom: 20,
+    paddingHorizontal: 10,
   },
 
   statBox: { 
@@ -351,7 +358,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     backgroundColor: '#bfcdb8ff',
-    flexWrap: 'nowrap', // keep all tabs on a single line
+    flexWrap: 'nowrap',
+    paddingHorizontal: 10,
   },
 
   tab: {
@@ -372,13 +380,6 @@ const styles = StyleSheet.create({
   contentContainer: { 
     flex: 1,
     backgroundColor: 'transparent',
-  },
-
-  placeholder: { 
-    alignItems: 'center', justifyContent: 'center', flex: 1 
-  },
-
-  placeholderText: { 
-    color: '#888' 
+    minHeight: 400,
   },
 });
