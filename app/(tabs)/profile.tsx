@@ -11,6 +11,7 @@ import MyRecipes from '../profile_tabs/myRecipes';
 import MealPlan from '../profile_tabs/mealPlan';
 import GroceryList from '../profile_tabs/groceryList';
 import LikedRecipes from '../profile_tabs/likedRecipes';
+import { Recipe } from '../profile_tabs/recipeCard';
 
 interface UserProfile {
   name: string | null;
@@ -23,17 +24,7 @@ const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'myRecipes' | 'liked' | 'mealPlan' | 'groceries'>('myRecipes');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [recipeCount, setRecipeCount] = useState<number>(0);
-  
-  interface LocalRecipe {
-    id?: string;
-    name: string;
-    desc: string;
-    ingredients: string[];
-    tags: string[];
-    visibility?: boolean;
-    Picture?: string | null;
-  }
-  const [recipes, setRecipes] = useState<LocalRecipe[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [friendCount, setFriendCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -109,7 +100,7 @@ const Profile: React.FC = () => {
       const { count, error: recipeError } = await supabase
         .from('Recipes')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('owner', user.id);
 
       if (recipeError) {
         console.error('Error counting recipes:', recipeError);
@@ -119,22 +110,26 @@ const Profile: React.FC = () => {
 
       const { data: userRecipes, error: userRecipesError } = await supabase
         .from('Recipes')
-        .select('id, Name, Description, Picture, Tags, Public, created_at')
-        .eq('user_id', user.id)
+        .select('id, name, description, picture, tags, ingredients, public, created_at')
+        .eq('owner', user.id)
         .order('created_at', { ascending: false });
 
       if (userRecipesError) {
         console.error('Error fetching user recipes:', userRecipesError);
         setRecipes([]);
       } else if (userRecipes) {
-        const mapped = userRecipes.map((r: any) => ({
+        const mapped: Recipe[] = userRecipes.map((r: any) => ({
           id: r.id,
-          name: r.Name,
-          desc: r.Description,
-          ingredients: r.Ingredients || [],
-          tags: r.Tags || [],
-          visibility: !!r.Public,
-          Picture: r.Picture ?? null,
+          name: r.name,
+          desc: r.description || '',
+          description: r.description || '',
+          ingredients: r.ingredients || [],
+          tags: r.tags || [],
+          public: !!r.public,
+          Public: !!r.public,
+          picture: r.picture ?? null,
+          Picture: r.picture ?? null,
+          created_at: r.created_at,
         }));
         setRecipes(mapped);
         setRecipeCount(mapped.length);

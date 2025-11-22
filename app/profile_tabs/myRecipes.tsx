@@ -9,22 +9,11 @@ import {
   ScrollView,
   Switch,
   Alert,
-  Image,
   DeviceEventEmitter,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import RecipeCard from './recipeCard';
-
-interface Recipe {
-  id?: string;
-  name: string;
-  desc: string;
-  ingredients: string[];
-  tags: string[];
-  visibility?: boolean;
-  Picture?: string | null;
-}
+import RecipeCard, { Recipe, DEFAULT_ASSET_MAP } from './recipeCard';
 
 type Props = {
   recipes: Recipe[];
@@ -33,47 +22,27 @@ type Props = {
 
 const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   const [addEditModalVisible, setAddEditModalVisible] = useState(false);
-  const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
 
+  // Form fields
   const [newRecipeName, setNewRecipeName] = useState('');
-  const [newRecipeDesc, setNewRecipeDesc] = useState('');
+  const [newRecipeDescription, setNewRecipeDescription] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [newRecipeVisibility, setNewRecipeVisibility] = useState<boolean>(true);
+  const [newRecipePublic, setNewRecipePublic] = useState<boolean>(true);
   const [newRecipePicture, setNewRecipePicture] = useState<string>('');
-  const [newRecipePictureRequire, setNewRecipePictureRequire] = useState<any | null>(null);
   const [newIngredient, setNewIngredient] = useState('');
 
   const tagsList = ['Healthy', 'Quick', 'Low-Budget', 'Vegan', 'Breakfast', 'Lunch', 'Dinner', 'Dessert'];
 
-  const assetOptions = [
-    { key: 'green_smoothie', label: 'Green Smoothie', src: require('../../assets/images/green_smoothie.png'), path: 'assets/images/green_smoothie.png' },
-    { key: 'chickpea_curry', label: 'Chickpea Curry', src: require('../../assets/images/chickpea_curry.png'), path: 'assets/images/chickpea_curry.png' },
-    { key: 'avocado_toast', label: 'Avocado Toast', src: require('../../assets/images/avocado_toast.png'), path: 'assets/images/avocado_toast.png' },
-    { key: 'lemon_chicken', label: 'Lemon Chicken', src: require('../../assets/images/lemon_chicken.png'), path: 'assets/images/lemon_chicken.png' },
-    { key: 'mug_cake', label: 'Mug Cake', src: require('../../assets/images/mug_cake.png'), path: 'assets/images/mug_cake.png' },
-  ];
-
-  // Asset map for RecipeCard component
-  const assetMap: Record<string, any> = {
-    'assets/images/green_smoothie.png': require('../../assets/images/green_smoothie.png'),
-    'assets/images/chickpea_curry.png': require('../../assets/images/chickpea_curry.png'),
-    'assets/images/avocado_toast.png': require('../../assets/images/avocado_toast.png'),
-    'assets/images/lemon_chicken.png': require('../../assets/images/lemon_chicken.png'),
-    'assets/images/mug_cake.png': require('../../assets/images/mug_cake.png'),
-  };
-
   const openAddModal = () => {
     setEditingIndex(null);
     setNewRecipeName('');
-    setNewRecipeDesc('');
+    setNewRecipeDescription('');
     setSelectedIngredients([]);
     setSelectedTags([]);
-    setNewRecipeVisibility(true);
+    setNewRecipePublic(true);
     setNewRecipePicture('assets/images/placeholder.png');
-    setNewRecipePictureRequire(require('../../assets/images/placeholder.png'));
     setAddEditModalVisible(true);
   };
 
@@ -81,33 +50,27 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     const recipe = recipes[index];
     setEditingIndex(index);
     setNewRecipeName(recipe.name);
-    setNewRecipeDesc(recipe.desc);
-    setSelectedIngredients(recipe.ingredients);
-    setSelectedTags(recipe.tags);
-    setNewRecipeVisibility(recipe.visibility ?? true);
-    if ((recipe as any).Picture) {
-      setNewRecipePicture((recipe as any).Picture);
-      const mapped = assetMap[(recipe as any).Picture];
-      setNewRecipePictureRequire(mapped || require('../../assets/images/placeholder.png'));
-    } else {
-      setNewRecipePicture('assets/images/placeholder.png');
-      setNewRecipePictureRequire(require('../../assets/images/placeholder.png'));
-    }
+    setNewRecipeDescription(recipe.desc || recipe.description || '');
+    setSelectedIngredients(recipe.ingredients || []);
+    setSelectedTags(recipe.tags || []);
+    setNewRecipePublic(recipe.public ?? recipe.Public ?? true);
+    setNewRecipePicture(recipe.picture || recipe.Picture || 'assets/images/placeholder.png');
     setAddEditModalVisible(true);
   };
 
-  const openViewModal = (index: number) => {
-    setViewingIndex(index);
-    setViewModalVisible(true);
+  const toggleSelection = (item: string, selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
+    if (selected.includes(item)) setSelected(selected.filter((i) => i !== item));
+    else setSelected([...selected, item]);
   };
 
   const handleSaveRecipe = async () => {
     const newRecipe: Recipe = {
       name: newRecipeName,
-      desc: newRecipeDesc,
+      description: newRecipeDescription,
       ingredients: selectedIngredients,
       tags: selectedTags,
-      visibility: newRecipeVisibility,
+      public: newRecipePublic,
+      picture: newRecipePicture,
     };
 
     try {
@@ -117,15 +80,16 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         return;
       }
 
-      if (editingIndex !== null && (recipes[editingIndex] as any)?.id) {
-        const existingId = (recipes[editingIndex] as any).id;
+      if (editingIndex !== null && recipes[editingIndex]?.id) {
+        const existingId = recipes[editingIndex].id;
         const payloadUpdate = {
-          Name: newRecipe.name,
-          Description: newRecipe.desc,
-          Picture: newRecipePicture || (recipes[editingIndex] as any).Picture || '',
-          Tags: newRecipe.tags,
-          Public: !!newRecipe.visibility,
-        } as any;
+          name: newRecipe.name,
+          description: newRecipe.description,
+          picture: newRecipe.picture || recipes[editingIndex].picture || '',
+          tags: newRecipe.tags,
+          ingredients: newRecipe.ingredients,
+          public: !!newRecipe.public,
+        };
 
         const { data: updatedRow, error: updateError } = await supabase
           .from('Recipes')
@@ -135,10 +99,14 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
           .single();
 
         if (updateError) {
-          console.error('Error updating recipe:', updateError);
           Alert.alert('Error', 'Could not update recipe on server.');
         } else {
-          const savedRecipe = { ...newRecipe, id: existingId, created_at: updatedRow?.created_at, Picture: payloadUpdate.Picture } as any;
+          const savedRecipe = { 
+            ...newRecipe, 
+            id: existingId, 
+            created_at: updatedRow?.created_at,
+            desc: newRecipe.description,
+          } as Recipe;
           const updated = [...recipes];
           updated[editingIndex] = savedRecipe;
           setRecipes(updated);
@@ -147,13 +115,14 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         }
       } else {
         const payload = {
-          Name: newRecipe.name,
-          Description: newRecipe.desc,
-          Picture: newRecipePicture || '',
-          Tags: newRecipe.tags,
-          user_id: user.id,
-          Public: !!newRecipe.visibility,
-        } as any;
+          name: newRecipe.name,
+          description: newRecipe.description,
+          picture: newRecipe.picture || '',
+          tags: newRecipe.tags,
+          ingredients: newRecipe.ingredients,
+          owner: user.id,
+          public: !!newRecipe.public,
+        };
 
         const { data: inserted, error: insertError } = await supabase
           .from('Recipes')
@@ -162,10 +131,14 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
           .single();
 
         if (insertError) {
-          console.error('Error inserting recipe:', insertError);
           Alert.alert('Error', 'Could not save recipe to server.');
         } else {
-          const savedRecipe = { ...newRecipe, id: inserted?.id, created_at: inserted?.created_at, Picture: payload.Picture } as any;
+          const savedRecipe = { 
+            ...newRecipe, 
+            id: inserted?.id, 
+            created_at: inserted?.created_at,
+            desc: newRecipe.description,
+          } as Recipe;
           setRecipes([savedRecipe, ...recipes]);
           setAddEditModalVisible(false);
           try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) {}
@@ -178,25 +151,20 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   };
 
   const handleDeleteRecipe = (index: number) => {
-    // Show confirmation dialog
     Alert.alert(
       'Delete Recipe',
       'Are you sure you want to delete this recipe? This action cannot be undone.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const recipe = recipes[index] as any;
+            const recipe = recipes[index];
             const proceedLocalDelete = () => {
               const updated = [...recipes];
               updated.splice(index, 1);
               setRecipes(updated);
-              setViewModalVisible(false);
             };
 
             if (recipe?.id) {
@@ -205,10 +173,8 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                 .delete()
                 .eq('id', recipe.id)
                 .then(({ error }) => {
-                  if (error) {
-                    console.error('Error deleting recipe from server:', error);
-                    Alert.alert('Error', 'Could not delete recipe from server.');
-                  } else {
+                  if (error) Alert.alert('Error', 'Could not delete recipe from server.');
+                  else {
                     proceedLocalDelete();
                     try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) {}
                   }
@@ -222,27 +188,12 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     );
   };
 
-  const toggleSelection = (item: string, selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
-    if (selected.includes(item)) setSelected(selected.filter((i) => i !== item));
-    else setSelected([...selected, item]);
-  };
-
-  // Get image source for view modal
-  const getRecipeImage = (recipe: Recipe) => {
-    if (recipe.Picture && assetMap[recipe.Picture]) {
-      return assetMap[recipe.Picture];
-    }
-    return require('../../assets/images/placeholder.png');
-  };
-
   return (
     <View style={styles.container}>
-      {/* Add Button */}
       <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
         <FontAwesome name="plus" size={20} color="#fff" />
       </TouchableOpacity>
 
-      {/* Recipe Grid */}
       <ScrollView contentContainerStyle={styles.grid}>
         {recipes.length === 0 ? (
           <View style={styles.emptyStateContainer}>
@@ -253,81 +204,15 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         ) : (
           recipes.map((recipe, index) => (
             <RecipeCard
-              key={(recipe as any).id ?? index}
+              key={recipe.id ?? index}
               recipe={recipe}
-              onPress={() => openViewModal(index)}
-              showOverlayButtons={false}
-              assetMap={assetMap}
+              onEdit={() => openEditModal(index)}
+              onDelete={() => handleDeleteRecipe(index)}
+              assetMap={DEFAULT_ASSET_MAP}
             />
           ))
         )}
       </ScrollView>
-
-      {/* View Recipe Modal - Now matches explore.tsx style */}
-      <Modal visible={viewModalVisible} transparent animationType="slide">
-        {viewingIndex !== null && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.viewModalContent}>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Recipe Image */}
-                <Image 
-                  source={getRecipeImage(recipes[viewingIndex])} 
-                  style={styles.viewModalImage}
-                  resizeMode="cover"
-                />
-
-                {/* Recipe Title */}
-                <Text style={styles.viewModalTitle}>{recipes[viewingIndex].name}</Text>
-
-                {/* Recipe Description */}
-                <Text style={styles.viewModalDesc}>{recipes[viewingIndex].desc}</Text>
-
-                {/* Tags */}
-                <View style={styles.tagRow}>
-                  {recipes[viewingIndex].tags.map((tag: string) => (
-                    <View key={tag} style={styles.tagChip}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Ingredients */}
-                <Text style={styles.ingredientsLabel}>Ingredients</Text>
-                {recipes[viewingIndex].ingredients.map((ing: string, i: number) => (
-                  <Text key={i} style={styles.ingredientItem}>• {ing}</Text>
-                ))}
-
-                {/* Action Buttons - Close, Edit, Delete */}
-                <View style={styles.viewModalButtons}>
-                  <TouchableOpacity 
-                    style={styles.viewModalCloseButton} 
-                    onPress={() => setViewModalVisible(false)}
-                  >
-                    <Text style={styles.viewModalButtonText}>Close</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.viewModalEditButton} 
-                    onPress={() => {
-                      setViewModalVisible(false);
-                      openEditModal(viewingIndex);
-                    }}
-                  >
-                    <Text style={styles.viewModalButtonText}>Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.viewModalDeleteButton} 
-                    onPress={() => handleDeleteRecipe(viewingIndex)}
-                  >
-                    <Text style={styles.viewModalButtonText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        )}
-      </Modal>
 
       {/* Add/Edit Modal */}
       <Modal visible={addEditModalVisible} transparent animationType="slide">
@@ -350,8 +235,8 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Description"
-                value={newRecipeDesc}
-                onChangeText={setNewRecipeDesc}
+                value={newRecipeDescription}
+                onChangeText={setNewRecipeDescription}
                 multiline
               />
 
@@ -410,7 +295,6 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                 <TouchableOpacity 
                   style={styles.uploadPlaceholder}
                   onPress={() => {
-                    // TODO: Implement image upload functionality
                     Alert.alert('Coming Soon', 'Image upload feature is not yet implemented.');
                   }}
                 >
@@ -423,12 +307,12 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 8 }}>
                 <Text style={styles.label}>Visibility</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ marginRight: 8 }}>{newRecipeVisibility ? 'Public' : 'Private'}</Text>
+                  <Text style={{ marginRight: 8 }}>{newRecipePublic ? 'Public' : 'Private'}</Text>
                   <Switch
-                    value={newRecipeVisibility}
-                    onValueChange={setNewRecipeVisibility}
+                    value={newRecipePublic}
+                    onValueChange={setNewRecipePublic}
                     trackColor={{ false: '#ccc', true: '#5b8049ff' }}
-                    thumbColor={newRecipeVisibility ? '#fff' : '#fff'}
+                    thumbColor={newRecipePublic ? '#fff' : '#fff'}
                   />
                 </View>
               </View>
@@ -454,7 +338,6 @@ export default MyRecipes;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#bfcdb8ff' },
-
   addButton: {
     position: 'absolute',
     bottom: 24,
@@ -464,9 +347,7 @@ const styles = StyleSheet.create({
     padding: 12,
     zIndex: 2,
   },
-
   grid: { paddingBottom: 120, paddingHorizontal: 12 },
-
   emptyStateContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -485,22 +366,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-
-  // View Modal Styles (matching explore.tsx)
   modalOverlay: { 
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 20,
-  },
-  viewModalContent: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    padding: 16,
   },
   modalContentEdit: {
     width: '100%',
@@ -513,93 +384,11 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  viewModalImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: '#E0E0E0',
-  },
-  viewModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#000',
-  },
-  viewModalDesc: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 10,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  tagChip: {
-    backgroundColor: '#E6F4EA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-    marginTop: 6,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#2f5d3a',
-  },
-  ingredientsLabel: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#444',
-    marginBottom: 8,
-  },
-  ingredientItem: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
-  },
-  viewModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    gap: 8,
-  },
-  viewModalCloseButton: {
-    flex: 1,
-    backgroundColor: '#ccc',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  viewModalEditButton: {
-    flex: 1,
-    backgroundColor: '#5b8049ff',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  viewModalDeleteButton: {
-    flex: 1,
-    backgroundColor: '#e74c3c',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  viewModalButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-
-  // Add/Edit Modal styles
   modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
   cancelButton: { backgroundColor: '#ccc', padding: 12, borderRadius: 8, flex: 1, marginRight: 8 },
   saveButton: { backgroundColor: '#5b8049ff', padding: 12, borderRadius: 8, flex: 1, marginLeft: 8 },
   buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
-
   input: { borderWidth: 1, color: '#333', borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10, backgroundColor: '#fff' },
   textArea: { height: 80, textAlignVertical: 'top' },
   label: { fontSize: 16, fontWeight: 'bold', marginTop: 8, color: '#333' },
@@ -610,7 +399,6 @@ const styles = StyleSheet.create({
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 8 },
   tagItem: { padding: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 12, margin: 4 },
   tagSelected: { backgroundColor: '#e0f7ff', borderColor: '#5b8049ff' },
-  
   uploadPlaceholder: {
     backgroundColor: '#f5f5f5',
     borderWidth: 2,

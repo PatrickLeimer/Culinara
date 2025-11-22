@@ -1,90 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, ScrollView, TouchableOpacity, Modal, Image, DeviceEventEmitter } from 'react-native';
+import { StyleSheet, View, TextInput, ScrollView, DeviceEventEmitter, TouchableOpacity } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Text } from '@/components/Themed';
 import { useLikes } from '@/components/LikesContext';
 import { FontAwesome } from '@expo/vector-icons';
-import RecipeCard from '../profile_tabs/recipeCard';
+import RecipeCard, { Recipe, MOCK_RECIPES, DEFAULT_ASSET_MAP } from '../profile_tabs/recipeCard';
 
 export default function ExploreScreen() {
   const { like, unlike, isLiked } = useLikes();
   const categories = ['Healthy', 'Quick', 'Low-Budget', 'Lunch', 'Dinner', 'Vegan', 'Dessert'];
-  const [selectedRecipe, setSelectedRecipe] = useState<any | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const openRecipe = (r: any) => {
-    setSelectedRecipe(r);
-    setModalVisible(true);
-  };
-
-  const closeRecipe = () => {
-    setModalVisible(false);
-    setSelectedRecipe(null);
-  };
-
-  // Local mock recipes (used as fallback / demo)
-  const initialMock = [
-    {
-      id: 'mock-1',
-      name: 'Green Goddess Smoothie',
-      desc: 'A refreshing blender smoothie packed with spinach and banana.',
-      ingredients: ['Spinach', 'Banana', 'Almond milk', 'Chia seeds', 'Honey'],
-      tags: ['Healthy', 'Quick', 'Breakfast'],
-      image: require('../../assets/images/green_smoothie.png'),
-    },
-    {
-      id: 'mock-2',
-      name: '15-min Chickpea Curry',
-      desc: 'A spicy, budget-friendly vegan curry served with rice.',
-      ingredients: ['Chickpeas', 'Tomato', 'Onion', 'Curry powder', 'Garlic'],
-      tags: ['Vegan', 'Low-Budget', 'Quick', 'Dinner'],
-      image: require('../../assets/images/chickpea_curry.png'),
-    },
-    {
-      id: 'mock-3',
-      name: 'Avocado Toast Deluxe',
-      desc: 'Creamy avocado on toasted sourdough with chili flakes.',
-      ingredients: ['Sourdough', 'Avocado', 'Lemon', 'Chili flakes', 'Olive oil'],
-      tags: ['Quick', 'Breakfast', 'Healthy'],
-      image: require('../../assets/images/avocado_toast.png'),
-    },
-    {
-      id: 'mock-4',
-      name: 'One-Pan Lemon Chicken',
-      desc: 'Simple roasted chicken with lemon and herbs, easy cleanup.',
-      ingredients: ['Chicken thighs', 'Lemon', 'Rosemary', 'Potatoes', 'Olive oil'],
-      tags: ['Dinner', 'Low-Budget'],
-      image: require('../../assets/images/lemon_chicken.png'),
-    },
-    {
-      id: 'mock-5',
-      name: 'Chocolate Mug Cake',
-      desc: 'Single-serving dessert ready in 2 minutes in the microwave.',
-      ingredients: ['Flour', 'Cocoa powder', 'Sugar', 'Egg', 'Milk'],
-      tags: ['Dessert', 'Quick'],
-      image: require('../../assets/images/mug_cake.png'),
-    },
-  ];
-
-  const [recipes, setRecipes] = useState<any[]>(initialMock);
-
-  // Map of local asset paths to require() so we can render images saved as DB paths
-  const assetMap: Record<string, any> = {
-    'assets/images/green_smoothie.png': require('../../assets/images/green_smoothie.png'),
-    'assets/images/chickpea_curry.png': require('../../assets/images/chickpea_curry.png'),
-    'assets/images/avocado_toast.png': require('../../assets/images/avocado_toast.png'),
-    'assets/images/lemon_chicken.png': require('../../assets/images/lemon_chicken.png'),
-    'assets/images/mug_cake.png': require('../../assets/images/mug_cake.png'),
-  };
+  const [recipes, setRecipes] = useState<Recipe[]>(MOCK_RECIPES);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>(MOCK_RECIPES);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     let mounted = true;
+    
     const fetchPublicRecipes = async () => {
       try {
         const { data, error } = await supabase
           .from('Recipes')
-          .select('id, Name, Description, Picture, Tags, created_at, user_id')
-          .eq('Public', true)
+          .select('id, name, description, picture, tags, ingredients, created_at, owner')
+          .eq('public', true)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -92,27 +30,31 @@ export default function ExploreScreen() {
           return;
         }
 
-        let mapped: any[] = [];
+        let mapped: Recipe[] = [];
         if (data && data.length) {
           mapped = data.map((d: any) => {
-            const pic = d.Picture || '';
-            const image = pic && typeof pic === 'string' && pic.startsWith('assets/') ? assetMap[pic] ?? '' : (pic || '');
+            const pic = d.picture || '';
+            const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
+              ? DEFAULT_ASSET_MAP[pic] ?? '' 
+              : (pic || '');
+            
             return {
               id: d.id,
-              name: d.Name,
-              desc: d.Description,
-              tags: d.Tags || [],
-              ingredients: d.Ingredients || [],
+              name: d.name,
+              desc: d.description,
+              tags: d.tags || [],
+              ingredients: d.ingredients || [],
               image: image,
               created_at: d.created_at,
-              user_id: d.user_id,
+              user_id: d.owner,
             };
           });
         }
 
         if (mounted) {
-          if (mapped.length) setRecipes(mapped);
-          else setRecipes(initialMock);
+          const recipesToUse = mapped.length ? mapped : MOCK_RECIPES;
+          setAllRecipes(recipesToUse);
+          setRecipes(recipesToUse);
         }
       } catch (err) {
         console.error('Unexpected error fetching public recipes:', err);
@@ -129,16 +71,55 @@ export default function ExploreScreen() {
     };
   }, []);
 
-  const handlePlusPress = (recipe: any) => {
+  // Filter recipes based on search query and selected categories
+  useEffect(() => {
+    let filtered = [...allRecipes];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((recipe) => {
+        const nameMatch = recipe.name?.toLowerCase().includes(query);
+        const descMatch = recipe.desc?.toLowerCase().includes(query);
+        const ingredientsMatch = recipe.ingredients?.some((ing) =>
+          ing.toLowerCase().includes(query)
+        );
+        const tagsMatch = recipe.tags?.some((tag) =>
+          tag.toLowerCase().includes(query)
+        );
+        return nameMatch || descMatch || ingredientsMatch || tagsMatch;
+      });
+    }
+
+    // Apply category filter
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter((recipe) =>
+        selectedCategories.every((category) =>
+          recipe.tags?.includes(category)
+        )
+      );
+    }
+
+    setRecipes(filtered);
+  }, [searchQuery, selectedCategories, allRecipes]);
+
+  const toggleCategory = (category: string) => {
+    if (selectedCategories.includes(category)) {
+      setSelectedCategories(selectedCategories.filter((c) => c !== category));
+    } else {
+      setSelectedCategories([...selectedCategories, category]);
+    }
+  };
+
+  const handlePlusPress = (recipe: Recipe) => {
     console.log('Add to meal plan:', recipe.name);
     // TODO: Implement add to meal plan functionality
   };
 
-  const handleHeartPress = async (recipe: any) => {
+  const handleHeartPress = async (recipe: Recipe) => {
     const id = String(recipe?.id ?? '');
     if (!id) return;
 
-    // Use the likes context to like/unlike by recipe id
     try {
       if (isLiked(id)) {
         await unlike(id);
@@ -162,9 +143,16 @@ export default function ExploreScreen() {
         <FontAwesome name="search" size={18} color="#999" style={{ marginRight: 8 }} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search..."
+          placeholder="Search recipes..."
           placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <FontAwesome name="times-circle" size={18} color="#999" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Scrollable Content */}
@@ -180,70 +168,66 @@ export default function ExploreScreen() {
           style={styles.categoriesScroll}
           contentContainerStyle={{ paddingRight: 16 }}
         >
-          {categories.map((category, index) => (
-            <View key={index} style={styles.categoryBox}>
-              <View style={styles.categorySquare} />
-              <Text style={styles.categoryLabel}>{category}</Text>
-            </View>
-          ))}
+          {categories.map((category, index) => {
+            const isSelected = selectedCategories.includes(category);
+            return (
+              <TouchableOpacity
+                key={index}
+                onPress={() => toggleCategory(category)}
+                style={styles.categoryBox}
+              >
+                <View style={[
+                  styles.categorySquare,
+                  isSelected && styles.categorySquareSelected
+                ]}>
+                  {isSelected && (
+                    <FontAwesome name="check" size={24} color="#fff" />
+                  )}
+                </View>
+                <Text style={[
+                  styles.categoryLabel,
+                  isSelected && styles.categoryLabelSelected
+                ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Recipes */}
-        <Text style={styles.sectionTitle}>Recipes</Text>
-        <View style={styles.recipesContainer}>
-          {recipes.map((r, index) => (
-            <RecipeCard
-              key={r.id ?? index}
-              recipe={r}
-              onPress={() => openRecipe(r)}
-              showOverlayButtons={true}
-              onPlusPress={() => handlePlusPress(r)}
-              onHeartPress={() => handleHeartPress(r)}
-              isLiked={isLiked(String(r.id ?? ''))}
-              assetMap={assetMap}
-            />
-          ))}
+        <View style={styles.recipeHeader}>
+          <Text style={styles.sectionTitle}>Recipes</Text>
+          {(searchQuery || selectedCategories.length > 0) && (
+            <Text style={styles.resultCount}>
+              {recipes.length} {recipes.length === 1 ? 'result' : 'results'}
+            </Text>
+          )}
         </View>
-
-        {/* Detail Modal */}
-        <Modal visible={modalVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              {selectedRecipe && (
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  {selectedRecipe.image ? (
-                    typeof selectedRecipe.image === 'string' ? (
-                      <Image source={{ uri: selectedRecipe.image }} style={styles.modalImage} />
-                    ) : (
-                      <Image source={selectedRecipe.image} style={styles.modalImage} />
-                    )
-                  ) : (
-                    <View style={[styles.modalImage, { backgroundColor: '#eee' }]} />
-                  )}
-                  <Text style={styles.modalTitle}>{selectedRecipe.name}</Text>
-                  <Text style={styles.modalDesc}>{selectedRecipe.desc}</Text>
-
-                  <View style={styles.tagRow}>
-                    {selectedRecipe.tags.map((tag: string) => (
-                      <View key={tag} style={styles.tagChip}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <Text style={styles.ingredientsLabel}>Ingredients</Text>
-                  {selectedRecipe.ingredients.map((ing: string, i: number) => (
-                    <Text key={i} style={styles.ingredientItem}>• {ing}</Text>
-                  ))}
-
-                  <TouchableOpacity style={styles.closeButton} onPress={closeRecipe}>
-                    <Text style={styles.closeButtonText}>Close</Text>
-                  </TouchableOpacity>
-                </ScrollView>
-              )}
+        <View style={styles.recipesContainer}>
+          {recipes.length === 0 ? (
+            <View style={styles.noResultsContainer}>
+              <FontAwesome name="search" size={48} color="#999" style={{ marginBottom: 16 }} />
+              <Text style={styles.noResultsTitle}>No recipes found</Text>
+              <Text style={styles.noResultsText}>
+                Try adjusting your search or filters
+              </Text>
             </View>
-          </View>
-        </Modal>
+          ) : (
+            recipes.map((r, index) => (
+              <RecipeCard
+                key={r.id ?? index}
+                recipe={r}
+                showOverlayButtons={true}
+                onPlusPress={() => handlePlusPress(r)}
+                onHeartPress={() => handleHeartPress(r)}
+                isLiked={isLiked(String(r.id ?? ''))}
+                showLikeButtonInModal={false}
+                assetMap={DEFAULT_ASSET_MAP}
+              />
+            ))
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -302,6 +286,11 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: '#E8E8E8',
     borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categorySquareSelected: {
+    backgroundColor: '#568A60',
   },
   categoryLabel: {
     marginTop: 8,
@@ -309,77 +298,40 @@ const styles = StyleSheet.create({
     color: '#568A60',
     fontWeight: '600',
   },
+  categoryLabelSelected: {
+    color: '#2f5d3a',
+    fontWeight: '700',
+  },
+  recipeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  resultCount: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
   recipesContainer: {
     marginTop: 10,
   },
-  tagRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  tagChip: {
-    backgroundColor: '#E6F4EA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-    marginTop: 6,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#2f5d3a',
-  },
-  ingredientsLabel: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#444',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
+  noResultsContainer: {
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
-  modalContent: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    padding: 16,
-  },
-  modalImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  modalTitle: {
+  noResultsTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 8,
   },
-  modalDesc: {
+  noResultsText: {
     fontSize: 14,
-    color: '#444',
-    marginBottom: 10,
-  },
-  ingredientItem: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
-  },
-  closeButton: {
-    marginTop: 12,
-    backgroundColor: '#5b8049ff',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: '#666',
+    textAlign: 'center',
   },
 });
