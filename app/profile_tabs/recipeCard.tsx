@@ -111,17 +111,21 @@ export const getRecipeDescription = (recipe: Recipe): string => {
 };
 
 export const getRecipeImage = (recipe: Recipe, assetMap = DEFAULT_ASSET_MAP) => {
-  // Explore format
+  // First, check if the recipe has a proper image field
   if (recipe.image) {
     return typeof recipe.image === 'string' ? { uri: recipe.image } : recipe.image;
   }
 
-  // MyRecipes format with Picture field
+  // Check Supabase or Picture field
   const picturePath = recipe.picture || recipe.Picture;
-  if (picturePath && assetMap[picturePath]) {
-    return assetMap[picturePath];
+  if (picturePath) {
+    // If it looks like a URL (Supabase), use it directly
+    if (picturePath.startsWith('http')) return { uri: picturePath };
+    // Otherwise, try mapping from DEFAULT_ASSET_MAP
+    if (assetMap[picturePath]) return assetMap[picturePath];
   }
 
+  // Fallback placeholder
   return require('../../assets/images/placeholder.png');
 };
 

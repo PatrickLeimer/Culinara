@@ -10,10 +10,13 @@ import {
   Switch,
   Alert,
   DeviceEventEmitter,
+  Image,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import RecipeCard, { Recipe, DEFAULT_ASSET_MAP } from './recipeCard';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 type Props = {
   recipes: Recipe[];
@@ -30,8 +33,10 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newRecipePublic, setNewRecipePublic] = useState<boolean>(true);
-  const [newRecipePicture, setNewRecipePicture] = useState<string>('');
+  const [newRecipePicture, setNewRecipePicture] = useState<string | null>(null);
+  const [newRecipePictureUri, setNewRecipePictureUri] = useState<string | null>(null);
   const [newIngredient, setNewIngredient] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const tagsList = ['Healthy', 'Quick', 'Low-Budget', 'Vegan', 'Breakfast', 'Lunch', 'Dinner', 'Dessert'];
 
@@ -42,7 +47,8 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setSelectedIngredients([]);
     setSelectedTags([]);
     setNewRecipePublic(true);
-    setNewRecipePicture('assets/images/placeholder.png');
+    setNewRecipePicture(null);
+    setNewRecipePictureUri(null);
     setAddEditModalVisible(true);
   };
 
@@ -54,13 +60,140 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setSelectedIngredients(recipe.ingredients || []);
     setSelectedTags(recipe.tags || []);
     setNewRecipePublic(recipe.public ?? recipe.Public ?? true);
-    setNewRecipePicture(recipe.picture || recipe.Picture || 'assets/images/placeholder.png');
+    setNewRecipePicture(recipe.picture || recipe.Picture || null);
+    setNewRecipePictureUri(recipe.picture || recipe.Picture || null);
     setAddEditModalVisible(true);
   };
 
   const toggleSelection = (item: string, selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>) => {
     if (selected.includes(item)) setSelected(selected.filter((i) => i !== item));
     else setSelected([...selected, item]);
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need camera roll permissions to upload images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUploadingImage(true);
+        const imageUri = result.assets[0].uri;
+
+        // Upload to Supabase
+        const uploadedUrl = await uploadImageToSupabase(imageUri);
+
+        if (uploadedUrl) {
+          // Delete old image if changing
+          if (newRecipePicture) await deleteImageFromSupabase(newRecipePicture);
+
+          setNewRecipePicture(uploadedUrl);
+          setNewRecipePictureUri(imageUri);
+          Alert.alert('Success', 'Image uploaded successfully!');
+        }
+        setUploadingImage(false);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+      setUploadingImage(false);
+    }
+  };
+
+  const uploadImageToSupabase = async (uri: string): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to upload images');
+        return null;
+      }
+
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+      const u8arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+      const { error } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, u8arr, { contentType: `image/${fileExt}` });
+
+      if (error) {
+        console.error('Upload error:', error);
+        Alert.alert('Upload Failed', error.message);
+        return null;
+      }
+
+      const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(fileName);
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error('Error uploading to Supabase:', err);
+      Alert.alert('Error', 'Failed to upload image to server');
+      return null;
+    }
+  };
+
+  const deleteImageFromSupabase = async (url: string) => {
+    if (!url) return;
+
+    try {
+      const filePath = url.split('/').slice(-2).join('/'); // userId/timestamp.jpg format
+      const { error } = await supabase.storage.from('recipe-images').remove([filePath]);
+
+      if (error) console.log('Error deleting image:', error.message);
+      else console.log('Image deleted successfully');
+
+      setNewRecipePicture(null);
+      setNewRecipePictureUri(null);
+    } catch (err) {
+      console.log('Unexpected error deleting image:', err);
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!newRecipePicture) return; 
+
+    try {
+      const filePath = newRecipePicture; // use full path from Supabase
+      const { error } = await supabase.storage
+        .from('recipe-images')
+        .remove([filePath]);
+
+      if (error) {
+        console.log('Error deleting image from Supabase:', error.message);
+        Alert.alert('Error', 'Failed to delete image from server.');
+        return;
+      }
+
+      console.log('Image deleted successfully');
+
+      // Clear modal state
+      setNewRecipePicture('');
+      setNewRecipePictureUri(null);
+
+      // If editing existing recipe, also update it in local state
+      if (editingIndex !== null) {
+        const updatedRecipes = [...recipes];
+        updatedRecipes[editingIndex] = {
+          ...updatedRecipes[editingIndex],
+          picture: null,
+        };
+        setRecipes(updatedRecipes);
+      }
+
+    } catch (err) {
+      console.log('Unexpected error deleting image:', err);
+      Alert.alert('Error', 'Unexpected error deleting image.');
+    }
   };
 
   const handleSaveRecipe = async () => {
@@ -70,7 +203,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
       ingredients: selectedIngredients,
       tags: selectedTags,
       public: newRecipePublic,
-      picture: newRecipePicture,
+      picture: newRecipePicture || null,
     };
 
     try {
@@ -98,15 +231,9 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
           .select('id, created_at')
           .single();
 
-        if (updateError) {
-          Alert.alert('Error', 'Could not update recipe on server.');
-        } else {
-          const savedRecipe = { 
-            ...newRecipe, 
-            id: existingId, 
-            created_at: updatedRow?.created_at,
-            desc: newRecipe.description,
-          } as Recipe;
+        if (updateError) Alert.alert('Error', 'Could not update recipe on server.');
+        else {
+          const savedRecipe = { ...newRecipe, id: existingId, created_at: updatedRow?.created_at, desc: newRecipe.description } as Recipe;
           const updated = [...recipes];
           updated[editingIndex] = savedRecipe;
           setRecipes(updated);
@@ -130,15 +257,9 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
           .select('id, created_at')
           .single();
 
-        if (insertError) {
-          Alert.alert('Error', 'Could not save recipe to server.');
-        } else {
-          const savedRecipe = { 
-            ...newRecipe, 
-            id: inserted?.id, 
-            created_at: inserted?.created_at,
-            desc: newRecipe.description,
-          } as Recipe;
+        if (insertError) Alert.alert('Error', 'Could not save recipe to server.');
+        else {
+          const savedRecipe = { ...newRecipe, id: inserted?.id, created_at: inserted?.created_at, desc: newRecipe.description } as Recipe;
           setRecipes([savedRecipe, ...recipes]);
           setAddEditModalVisible(false);
           try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) {}
@@ -151,42 +272,41 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   };
 
   const handleDeleteRecipe = (index: number) => {
-    Alert.alert(
-      'Delete Recipe',
-      'Are you sure you want to delete this recipe? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const recipe = recipes[index];
-            const proceedLocalDelete = () => {
-              const updated = [...recipes];
-              updated.splice(index, 1);
-              setRecipes(updated);
-            };
+  Alert.alert(
+    'Delete Recipe',
+    'Are you sure you want to delete this recipe? This action cannot be undone.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const recipe = recipes[index];
+          const proceedLocalDelete = () => {
+            const updated = [...recipes];
+            updated.splice(index, 1);
+            setRecipes(updated);
 
-            if (recipe?.id) {
-              supabase
-                .from('Recipes')
-                .delete()
-                .eq('id', recipe.id)
-                .then(({ error }) => {
-                  if (error) Alert.alert('Error', 'Could not delete recipe from server.');
-                  else {
-                    proceedLocalDelete();
-                    try { DeviceEventEmitter.emit('recipesUpdated'); } catch (e) {}
-                  }
-                });
-            } else {
-              proceedLocalDelete();
-            }
-          },
+            // Notify other screens (like ExploreScreen) to refetch
+            DeviceEventEmitter.emit('recipesUpdated');
+          };
+
+          if (recipe?.id) {
+            supabase
+              .from('Recipes')
+              .delete()
+              .eq('id', recipe.id)
+              .then(({ error }) => {
+                if (error) Alert.alert('Error', 'Could not delete recipe from server.');
+                else proceedLocalDelete();
+              });
+          } else proceedLocalDelete();
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
+
 
   return (
     <View style={styles.container}>
@@ -218,27 +338,11 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
       <Modal visible={addEditModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContentEdit}>
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContent}
-            >
-              <Text style={styles.modalTitle}>
-                {editingIndex !== null ? 'Edit Recipe' : 'Create New Recipe'}
-              </Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+              <Text style={styles.modalTitle}>{editingIndex !== null ? 'Edit Recipe' : 'Create New Recipe'}</Text>
 
-              <TextInput
-                style={styles.input}
-                placeholder="Recipe Name"
-                value={newRecipeName}
-                onChangeText={setNewRecipeName}
-              />
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Description"
-                value={newRecipeDescription}
-                onChangeText={setNewRecipeDescription}
-                multiline
-              />
+              <TextInput style={styles.input} placeholder="Recipe Name" value={newRecipeName} onChangeText={setNewRecipeName} />
+              <TextInput style={[styles.input, styles.textArea]} placeholder="Description" value={newRecipeDescription} onChangeText={setNewRecipeDescription} multiline />
 
               <Text style={styles.label}>Ingredients</Text>
               <View style={{ flexDirection: 'row', marginBottom: 8 }}>
@@ -263,11 +367,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
 
               <ScrollView style={styles.dropdownList}>
                 {selectedIngredients.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[styles.dropdownItem, styles.selectedItem]}
-                    onPress={() => toggleSelection(item, selectedIngredients, setSelectedIngredients)}
-                  >
+                  <TouchableOpacity key={item} style={[styles.dropdownItem, styles.selectedItem]} onPress={() => toggleSelection(item, selectedIngredients, setSelectedIngredients)}>
                     <Text style={styles.dropdownText}>{item}</Text>
                     <Text>✓</Text>
                   </TouchableOpacity>
@@ -279,10 +379,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                 {tagsList.map((item) => (
                   <TouchableOpacity
                     key={item}
-                    style={[
-                      styles.tagItem,
-                      selectedTags.includes(item) && styles.tagSelected,
-                    ]}
+                    style={[styles.tagItem, selectedTags.includes(item) && styles.tagSelected]}
                     onPress={() => toggleSelection(item, selectedTags, setSelectedTags)}
                   >
                     <Text>{item}</Text>
@@ -292,15 +389,44 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
 
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.label}>Picture</Text>
-                <TouchableOpacity 
-                  style={styles.uploadPlaceholder}
-                  onPress={() => {
-                    Alert.alert('Coming Soon', 'Image upload feature is not yet implemented.');
-                  }}
+                {(newRecipePictureUri || newRecipePicture) && (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={
+                        newRecipePictureUri
+                          ? { uri: newRecipePictureUri }
+                          : newRecipePicture && newRecipePicture.startsWith('http')
+                          ? { uri: newRecipePicture }
+                          : newRecipePicture && DEFAULT_ASSET_MAP[newRecipePicture]
+                          ? DEFAULT_ASSET_MAP[newRecipePicture]
+                          : require('../../assets/images/placeholder.png')
+                      }
+                      style={styles.imagePreview}
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity style={styles.removeImageButton} onPress={handleDeleteImage}>
+                      <FontAwesome name="times-circle" size={24} color="#e74c3c" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.uploadPlaceholder, (newRecipePictureUri || newRecipePicture) && styles.uploadPlaceholderSmall]}
+                  onPress={pickImage}
+                  disabled={uploadingImage}
                 >
-                  <FontAwesome name="camera" size={32} color="#999" />
-                  <Text style={styles.uploadText}>Upload Image</Text>
-                  <Text style={styles.uploadSubtext}>Feature coming soon</Text>
+                  {uploadingImage ? (
+                    <>
+                      <FontAwesome name="spinner" size={32} color="#999" />
+                      <Text style={styles.uploadText}>Uploading...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesome name="camera" size={32} color="#999" />
+                      <Text style={styles.uploadText}>{(newRecipePictureUri || newRecipePicture) ? 'Change Image' : 'Upload Image'}</Text>
+                      <Text style={styles.uploadSubtext}>{(newRecipePictureUri || newRecipePicture) ? 'Tap to select a different image' : 'Tap to select from gallery'}</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -325,7 +451,6 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                   <Text style={styles.buttonText}>Save</Text>
                 </TouchableOpacity>
               </View>
-
             </ScrollView>
           </View>
         </View>
@@ -338,52 +463,14 @@ export default MyRecipes;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#bfcdb8ff' },
-  addButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: '#5b8049ff',
-    borderRadius: 30,
-    padding: 12,
-    zIndex: 2,
-  },
+  addButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#5b8049ff', borderRadius: 30, padding: 12, zIndex: 2 },
   grid: { paddingBottom: 120, paddingHorizontal: 12 },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  modalOverlay: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    padding: 20,
-  },
-  modalContentEdit: {
-    width: '100%',
-    height: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  modalScrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60, paddingHorizontal: 20 },
+  emptyStateTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  emptyStateText: { fontSize: 14, color: '#666', textAlign: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', padding: 20 },
+  modalContentEdit: { width: '100%', height: '90%', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
+  modalScrollContent: { padding: 20, paddingBottom: 40 },
   modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
   cancelButton: { backgroundColor: '#ccc', padding: 12, borderRadius: 8, flex: 1, marginRight: 8 },
@@ -399,26 +486,11 @@ const styles = StyleSheet.create({
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 8 },
   tagItem: { padding: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 12, margin: 4 },
   tagSelected: { backgroundColor: '#e0f7ff', borderColor: '#5b8049ff' },
-  uploadPlaceholder: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  uploadText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 12,
-  },
-  uploadSubtext: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
+  uploadPlaceholder: { backgroundColor: '#f5f5f5', borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 12, padding: 40, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  uploadPlaceholderSmall: { padding: 20 },
+  uploadText: { fontSize: 16, fontWeight: '600', color: '#666', marginTop: 12 },
+  uploadSubtext: { fontSize: 12, color: '#999', marginTop: 4, textAlign: 'center' },
+  imagePreviewContainer: { position: 'relative', marginTop: 8, marginBottom: 12 },
+  imagePreview: { width: '100%', height: 200, borderRadius: 12, backgroundColor: '#E0E0E0' },
+  removeImageButton: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: 12, padding: 4 },
 });
