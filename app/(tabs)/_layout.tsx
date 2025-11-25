@@ -33,7 +33,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="compass" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -41,7 +41,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="user" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -49,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: 'Friends',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="users" color={color} />,
         }}
       />
     </Tabs>

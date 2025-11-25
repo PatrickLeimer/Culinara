@@ -53,7 +53,7 @@ export default function GroceryList() {
           onChangeText={text => setNewGroceryItem({ ...newGroceryItem, amount: text })}
         />
         <TouchableOpacity style={styles.addButton} onPress={addGroceryItem}>
-        <Text style={styles.addButtonText}>Add</Text>
+          <Text style={{ color: '#fff' }}>Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -99,8 +99,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     fontSize: 16,
-    backgroundColor: 'transparent',
-    fontWeight: '700',
+    backgroundColor: '#fff',
   },
   addButton: {
     backgroundColor: '#5b8049ff',
@@ -118,7 +117,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  itemText: { flex: 1, marginLeft: 10, fontSize: 16, backgroundColor: 'transparent', fontWeight: '700' },
-  itemAmount: { color: '#666', backgroundColor: 'transparent', fontWeight: '700' },
-  addButtonText: { color: '#fff', fontWeight: '700' },
+  itemText: { flex: 1, marginLeft: 10, fontSize: 16 },
+  itemAmount: { color: '#666' },
 });
