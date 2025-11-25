@@ -23,9 +23,6 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           marginTop: 10, // increase to add more space between icon and label
         },
-        // tabBarIconStyle: {
-        //   marginBottom: -2, // optional: adjust icon vertical position
-        // },
       }}
     >
       <Tabs.Screen
@@ -33,7 +30,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           headerShown: false,
-          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="compass" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -41,7 +38,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           headerShown: false,
-          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="user" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -49,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: 'Friends',
           headerShown: false,
-          tabBarIcon: ({ color }: { color: string }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
         }}
       />
     </Tabs>
