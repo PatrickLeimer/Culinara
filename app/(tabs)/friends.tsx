@@ -350,7 +350,7 @@ export default function FriendsScreen() {
     <View style={styles.container}>
       {/* Header - Shows "FRIENDS" title */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>FRIENDS</Text>
+        <Text style={styles.headerTitle}>Friends</Text>
       </View>
 
       {/* Search Bar - Allows user to search for other users */}

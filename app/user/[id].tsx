@@ -1,10 +1,11 @@
 // ============================================================================
 // FRIEND PROFILE SCREEN - View another user's profile
 // ============================================================================
-// This screen displays:
-// - Friend's profile information (name, username, email)
-// - Statistics (friend count, recipe count)
-// - Their recipes (read-only view)
+// Displays:
+// - Friend's profile info
+// - Friend count
+// - Recipe count (public only)
+// - Friend's public recipes
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -25,7 +26,7 @@ interface UserProfile {
 const FriendProfileScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  
+
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [recipeCount, setRecipeCount] = useState<number>(0);
@@ -40,11 +41,13 @@ const FriendProfileScreen = () => {
 
   const fetchFriendProfile = async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
-      
-      // Fetch friend's profile information
+
+      // =====================================================
+      // 1. Fetch friend's profile info
+      // =====================================================
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('id, name, lastname, username, email')
@@ -59,39 +62,55 @@ const FriendProfileScreen = () => {
 
       setUserProfile(profile);
 
-      // Fetch friend's public recipes with lowercase column names
+      // =====================================================
+      // 2. Count friend's PUBLIC recipes (same logic as Profile)
+      // =====================================================
+      const { count: recipeCountResult, error: recipeCountError } = await supabase
+        .from('Recipes')
+        .select('*', { count: 'exact', head: true })
+        .eq('owner', id)
+        .eq('public', true);
+
+      if (recipeCountError) {
+        console.error('Error counting recipes:', recipeCountError);
+      } else {
+        setRecipeCount(recipeCountResult || 0);
+      }
+
+      // =====================================================
+      // 3. Fetch friend's PUBLIC recipes
+      // =====================================================
       const { data: recipesData, error: recipesError } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, ingredients, created_at')
+        .select('id, name, description, picture, tags, ingredients, public, created_at')
         .eq('owner', id)
         .eq('public', true)
         .order('created_at', { ascending: false });
 
       if (recipesError) {
         console.error('Error fetching recipes:', recipesError);
+        setRecipes([]);
       } else if (recipesData) {
-        const mapped: Recipe[] = recipesData.map((r: any) => {
-          const pic = r.picture || '';
-          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
-            ? DEFAULT_ASSET_MAP[pic] ?? '' 
-            : (pic || '');
-
-          return {
-            id: r.id,
-            name: r.name,
-            desc: r.description,
-            tags: r.tags || [],
-            ingredients: r.ingredients || [],
-            image: image,
-            created_at: r.created_at,
-            user_id: id,
-          };
-        });
+        const mapped: Recipe[] = recipesData.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          desc: r.description || '',
+          description: r.description || '',
+          ingredients: r.ingredients || [],
+          tags: r.tags || [],
+          public: !!r.public,
+          Public: !!r.public,
+          picture: r.picture ?? null,
+          Picture: r.picture ?? null,
+          created_at: r.created_at,
+          user_id: id,
+        }));
         setRecipes(mapped);
-        setRecipeCount(mapped.length);
       }
 
-      // Count friend's friends
+      // =====================================================
+      // 4. Count friend's accepted friendships (same logic as Profile)
+      // =====================================================
       const { count: friendCountResult, error: friendError } = await supabase
         .from('friendships')
         .select('*', { count: 'exact', head: true })
@@ -121,6 +140,9 @@ const FriendProfileScreen = () => {
     return 'User';
   };
 
+  // =====================================================
+  // Loading & Error States
+  // =====================================================
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -140,21 +162,19 @@ const FriendProfileScreen = () => {
     );
   }
 
+  // =====================================================
+  // Main UI
+  // =====================================================
   return (
     <>
-      <Stack.Screen 
-        options={{ 
-          headerShown: false,
-          title: ''
-        }} 
-      />
+      <Stack.Screen options={{ headerShown: false, title: '' }} />
       <View style={styles.container}>
         {/* Header with back button */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
             <FontAwesome name="arrow-left" size={24} color="#000" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>Friend's Profile</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -164,9 +184,6 @@ const FriendProfileScreen = () => {
             <Text style={styles.profileName}>{getDisplayName()}</Text>
             {userProfile.username && (
               <Text style={styles.profileUsername}>@{userProfile.username}</Text>
-            )}
-            {userProfile.email && (
-              <Text style={styles.profileEmail}>{userProfile.email}</Text>
             )}
           </View>
 
@@ -264,10 +281,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#568A60',
     marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 14,
-    color: '#666',
   },
   statsContainer: {
     flexDirection: 'row',
