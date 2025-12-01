@@ -35,6 +35,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
   const [selectIngredientModalVisible, setSelectIngredientModalVisible] = useState(false);
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newRecipePublic, setNewRecipePublic] = useState<boolean>(true);
   const [newRecipePicture, setNewRecipePicture] = useState<string | null>(null);
@@ -516,7 +517,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
                   style={[styles.saveButton, { marginLeft: 8, paddingHorizontal: 12, backgroundColor: '#6aa16a' }]}
                   onPress={() => { setSelectIngredientModalVisible(true); loadAvailableIngredients(); }}
                 >
-                  <Text style={styles.buttonText}>Select Ingredient</Text>
+                  <Text style={styles.buttonText}>Search</Text>
                 </TouchableOpacity>
               </View>
 
@@ -559,12 +560,20 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
               <Modal visible={selectIngredientModalVisible} transparent animationType="fade">
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
                   <View style={{ width: '90%', maxHeight: '70%', backgroundColor: '#fff', borderRadius: 10, padding: 12 }}>
-                    <Text style={{ fontWeight: '700', marginBottom: 8 }}>Select Ingredient</Text>
+                    <Text style={{ fontWeight: '700', marginBottom: 8 }}>Search</Text>
+                    <TextInput
+                      placeholder="Search ingredients"
+                      value={ingredientSearch}
+                      onChangeText={setIngredientSearch}
+                      style={[styles.input, { marginBottom: 8 }]}
+                    />
                     <ScrollView style={{ maxHeight: 320 }}>
                       {loadingAvailable ? (
                         <Text>Loading...</Text>
                       ) : (
-                        availableIngredients.map((name) => (
+                        availableIngredients
+                          .filter((n) => ingredientSearch.trim() === '' || n.toLowerCase().includes(ingredientSearch.trim().toLowerCase()))
+                          .map((name) => (
                           <TouchableOpacity
                             key={name}
                             style={{ padding: 10, borderBottomWidth: 1, borderColor: '#eee' }}

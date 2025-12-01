@@ -9,6 +9,7 @@ import {
   TextInput,
   Switch,
 } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
 export default function GroceryList() {
   const [groceryList, setGroceryList] = useState<any[]>([]);
@@ -151,8 +152,8 @@ export default function GroceryList() {
                   }
                 }}
               />
-              <TouchableOpacity onPress={() => deleteGroceryItem(index)}>
-                <Text style={{ color: 'red', marginLeft: 8 }}>Delete</Text>
+              <TouchableOpacity onPress={() => deleteGroceryItem(index)} style={styles.deleteButton}>
+                <FontAwesome name="times" size={18} color="#e74c3c" />
               </TouchableOpacity>
             </View>
           ))
@@ -163,7 +164,7 @@ export default function GroceryList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginTop: 8 },
+  container: { flex: 1, marginTop: 8, paddingHorizontal: 16 },
   addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   input: {
     borderWidth: 1,
@@ -186,10 +187,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
   itemText: { flex: 1, marginLeft: 10, fontSize: 16 },
   itemAmount: { color: '#666' },
+  deleteButton: { padding: 6, marginLeft: 8 },
 });
