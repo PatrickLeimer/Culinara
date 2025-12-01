@@ -62,7 +62,7 @@ const FriendProfileScreen = () => {
       // Fetch friend's public recipes with lowercase column names
       const { data: recipesData, error: recipesError } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, ingredients, created_at')
+        .select('id, name, description, picture, tags, created_at')
         .eq('owner', id)
         .eq('public', true)
         .order('created_at', { ascending: false });
@@ -81,7 +81,7 @@ const FriendProfileScreen = () => {
             name: r.name,
             desc: r.description,
             tags: r.tags || [],
-            ingredients: r.ingredients || [],
+            ingredients: [],
             image: image,
             created_at: r.created_at,
             user_id: id,

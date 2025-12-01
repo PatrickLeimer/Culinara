@@ -35,7 +35,7 @@ export default function LikedRecipes() {
       if (validIds.length > 0) {
         const { data, error } = await supabase
           .from('Recipes')
-          .select('id, name, description, picture, tags, ingredients, created_at, owner')
+          .select('id, name, description, picture, tags, created_at, owner')
           .in('id', validIds);
 
         if (error) {
@@ -52,7 +52,7 @@ export default function LikedRecipes() {
               name: d.name,
               desc: d.description,
               tags: d.tags || [],
-              ingredients: d.ingredients || [],
+              ingredients: [],
               image: image,
               created_at: d.created_at,
               user_id: d.owner,
