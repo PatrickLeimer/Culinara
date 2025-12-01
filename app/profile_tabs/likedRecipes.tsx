@@ -27,7 +27,7 @@ export default function LikedRecipes() {
 
       const { data, error } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, ingredients, created_at, owner')
+        .select('id, name, description, picture, tags, created_at, owner')
         .in('id', recipeIds);
 
       if (error) {
@@ -43,12 +43,15 @@ export default function LikedRecipes() {
             ? DEFAULT_ASSET_MAP[pic] ?? '' 
             : (pic || '');
 
+          const parsedIngredients = Array.isArray(d.ingredients)
+            ? d.ingredients
+            : (typeof d.ingredients === 'string' ? JSON.parse(d.ingredients) : []);
           return {
             id: d.id,
             name: d.name,
             desc: d.description,
             tags: d.tags || [],
-            ingredients: d.ingredients || [],
+            ingredients: parsedIngredients,
             image: image,
             created_at: d.created_at,
             user_id: d.owner,

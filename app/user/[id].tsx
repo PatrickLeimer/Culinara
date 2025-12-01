@@ -82,7 +82,7 @@ const FriendProfileScreen = () => {
       // =====================================================
       const { data: recipesData, error: recipesError } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, ingredients, public, created_at')
+        .select('id, name, description, picture, tags, public, created_at')
         .eq('owner', id)
         .eq('public', true)
         .order('created_at', { ascending: false });
@@ -96,7 +96,7 @@ const FriendProfileScreen = () => {
           name: r.name,
           desc: r.description || '',
           description: r.description || '',
-          ingredients: r.ingredients || [],
+          ingredients: Array.isArray(r.ingredients) ? r.ingredients : (typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : []),
           tags: r.tags || [],
           public: !!r.public,
           Public: !!r.public,
