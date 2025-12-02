@@ -16,16 +16,42 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: useClientOnlyValue(false, true), // no top header for tabs
-
-        // Add these two lines to adjust spacing
-        tabBarLabelStyle: {
-          marginTop: 10, // increase to add more space between icon and label
+        tabBarActiveTintColor: '#568A60',
+        tabBarInactiveTintColor: '#999',
+        headerShown: useClientOnlyValue(false, true),
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 0,
+          // Glass effect with subtle green tint - Apple-style frosted glass
+          backgroundColor: 'rgba(255, 255, 255, 0.88)',
+          borderTopWidth: 0.5,
+          borderTopColor: 'rgba(86, 138, 96, 0.12)',
+          height: 90,
+          paddingBottom: 30,
+          paddingTop: 12,
+          // Subtle green tint shadow for depth
+          shadowColor: '#568A60',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 16,
+          elevation: 8,
+          // Rounded top corners for modern look
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          overflow: 'hidden',
         },
-        // tabBarIconStyle: {
-        //   marginBottom: -2, // optional: adjust icon vertical position
-        // },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 4,
+          letterSpacing: 0.3,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
       }}
     >
       <Tabs.Screen

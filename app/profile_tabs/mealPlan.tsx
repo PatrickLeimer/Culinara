@@ -50,23 +50,39 @@ export default function MealPlan() {
 
   return (
     <View style={styles.container}>
-      {/* MEAL PLAN SECTION */}
-      <ScrollView style={styles.recipesContainer}>
-        {Object.entries(weeklyRecipes).map(([day, meals]) => (
-          <View key={day} style={styles.dayContainer}>
-            <Text style={styles.dayTitle}>{day}</Text>
-            <View style={styles.mealsContainer}>
+      {/* Weekly Calendar View */}
+      <ScrollView 
+        style={styles.recipesContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {Object.entries(weeklyRecipes).map(([day, meals], dayIndex) => (
+          <View key={day} style={styles.dayCard}>
+            <View style={styles.dayHeader}>
+              <Text style={styles.dayTitle}>{day}</Text>
+            </View>
+            
+            <View style={styles.mealsGrid}>
               {Object.entries(meals).map(([mealType, recipe]) => (
-                <View key={mealType} style={styles.recipeCard}>
-                  <Text style={styles.mealType}>{getMealLabel(mealType as MealTypes)}</Text>
+                <TouchableOpacity 
+                  key={mealType} 
+                  style={styles.mealCard}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.mealHeader}>
+                    <Text style={styles.mealType}>{getMealLabel(mealType as MealTypes)}</Text>
+                  </View>
                   <TextInput
                     style={styles.recipeInput}
                     value={recipe}
                     onChangeText={text =>
                       handleEditMeal(day, mealType as MealTypes, text)
                     }
+                    placeholder="Add meal..."
+                    placeholderTextColor="#999"
+                    multiline={false}
                   />
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -77,38 +93,70 @@ export default function MealPlan() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#bfcdb8ff' },
-  toggleContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 12 },
-  toggleButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 20,
-    marginHorizontal: 5,
-  },
-  activeToggle: { backgroundColor: '#5b8049ff', borderColor: '#5b8049ff' },
-  toggleText: { color: '#333' },
-  activeText: { color: '#fff', fontWeight: '600' },
-  recipesContainer: { flex: 1 },
-  dayContainer: { marginBottom: 16, width: '100%' },
-  dayTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
-  mealsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  recipeCard: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    padding: 8,
-    marginBottom: 8,
-    width: '48%', // two columns: two cards per row
-  },
-  mealType: { fontWeight: '600', color: '#444', marginBottom: 4 },
-  recipeInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 4,
+  container: { 
+    flex: 1, 
     backgroundColor: '#fff',
-    fontSize: 14,
+  },
+  recipesContainer: { 
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 110,
+  },
+  dayCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  dayHeader: {
+    marginBottom: 12,
+  },
+  dayTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: '#000',
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  mealsGrid: { 
+    gap: 8,
+  },
+  mealCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  mealHeader: {
+    marginBottom: 8,
+  },
+  mealType: { 
+    fontWeight: '600', 
+    color: '#568A60', 
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  recipeInput: {
+    borderWidth: 0,
+    borderRadius: 8,
+    padding: 0,
+    backgroundColor: 'transparent',
+    fontSize: 16,
+    color: '#000',
+    fontWeight: '500',
+    minHeight: 24,
   },
   listContainer: { flex: 1, marginTop: 8 },
   addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },

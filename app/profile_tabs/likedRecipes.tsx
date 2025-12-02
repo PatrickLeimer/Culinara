@@ -27,7 +27,7 @@ export default function LikedRecipes() {
 
       const { data, error } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, ingredients, created_at, owner')
+        .select('id, name, description, picture, tags, created_at, owner')
         .in('id', recipeIds);
 
       if (error) {
@@ -37,6 +37,31 @@ export default function LikedRecipes() {
       }
 
       if (data) {
+        // Fetch ingredients for all recipes
+        const ingredientsMap: Record<string, string[]> = {};
+        if (recipeIds.length > 0) {
+          const { data: recipeIngredients, error: riError } = await supabase
+            .from('Recipe_Ingredients')
+            .select(`
+              recipe_id,
+              Ingredients (
+                name
+              )
+            `)
+            .in('recipe_id', recipeIds);
+
+          if (!riError && recipeIngredients) {
+            recipeIngredients.forEach((ri: any) => {
+              if (ri.recipe_id && ri.Ingredients?.name) {
+                if (!ingredientsMap[ri.recipe_id]) {
+                  ingredientsMap[ri.recipe_id] = [];
+                }
+                ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
+              }
+            });
+          }
+        }
+
         const mapped: Recipe[] = data.map((d: any) => {
           const pic = d.picture || '';
           const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
@@ -48,7 +73,7 @@ export default function LikedRecipes() {
             name: d.name,
             desc: d.description,
             tags: d.tags || [],
-            ingredients: d.ingredients || [],
+            ingredients: ingredientsMap[d.id] || [],
             image: image,
             created_at: d.created_at,
             user_id: d.owner,
@@ -115,7 +140,7 @@ export default function LikedRecipes() {
 const styles = StyleSheet.create({
   container: { 
     padding: 12,
-    paddingBottom: 30,
+    paddingBottom: 110, // Account for tab bar height (90px) + extra space
   },
   empty: { 
     flex: 1, 

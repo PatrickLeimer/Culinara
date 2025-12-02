@@ -375,7 +375,11 @@ export default function FriendsScreen() {
           <Text style={styles.sectionTitle}>Search Results</Text>
           <ScrollView style={styles.searchResultsList}>
             {searchResults.map((user) => (
-              <View key={user.id} style={styles.userItem}>
+              <TouchableOpacity
+                key={user.id}
+                style={styles.userItem}
+                onPress={() => router.push(`/user/${user.id}` as any)}
+              >
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{getUserDisplayName(user)}</Text>
                   {user.username && <Text style={styles.userUsername}>@{user.username}</Text>}
@@ -383,11 +387,14 @@ export default function FriendsScreen() {
                 {/* Button to send friend request to this user */}
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => sendFriendRequest(user.id)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    sendFriendRequest(user.id);
+                  }}
                 >
                   <Text style={styles.addButtonText}>Add</Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -400,7 +407,7 @@ export default function FriendsScreen() {
           onPress={() => setActiveTab('friends')}
         >
           <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-            Friends ({friends.length})  {/* Show count of friends */}
+            Friends ({friends.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -408,13 +415,16 @@ export default function FriendsScreen() {
           onPress={() => setActiveTab('requests')}
         >
           <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-            Requests ({pendingRequests.length})  {/* Show count of pending requests */}
+            Requests ({pendingRequests.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content - Shows either friends list or requests list based on active tab */}
-      <ScrollView style={styles.contentContainer}>
+      <ScrollView 
+        style={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
         {loading ? (
           // Show loading spinner while fetching friends
           <View style={styles.centerContent}>
@@ -459,7 +469,11 @@ export default function FriendsScreen() {
                     : friendship.requester;
                   if (!requester) return null;
                   return (
-                    <View key={friendship.id} style={styles.requestItem}>
+                    <TouchableOpacity
+                      key={friendship.id}
+                      style={styles.requestItem}
+                      onPress={() => router.push(`/user/${requester.id}` as any)}
+                    >
                       <View style={styles.userInfo}>
                         <Text style={styles.userName}>{getUserDisplayName(requester)}</Text>
                         {requester.username && <Text style={styles.userUsername}>@{requester.username}</Text>}
@@ -468,18 +482,24 @@ export default function FriendsScreen() {
                       <View style={styles.requestButtons}>
                         <TouchableOpacity
                           style={[styles.requestButton, styles.acceptButton]}
-                          onPress={() => acceptFriendRequest(friendship.id)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            acceptFriendRequest(friendship.id);
+                          }}
                         >
                           <Text style={styles.requestButtonText}>Accept</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.requestButton, styles.rejectButton]}
-                          onPress={() => rejectFriendRequest(friendship.id)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            rejectFriendRequest(friendship.id);
+                          }}
                         >
                           <Text style={styles.requestButtonText}>Reject</Text>
                         </TouchableOpacity>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -497,14 +517,18 @@ export default function FriendsScreen() {
                     : friendship.addressee;
                   if (!addressee) return null;
                   return (
-                    <View key={friendship.id} style={styles.requestItem}>
+                    <TouchableOpacity
+                      key={friendship.id}
+                      style={styles.requestItem}
+                      onPress={() => router.push(`/user/${addressee.id}` as any)}
+                    >
                       <View style={styles.userInfo}>
                         <Text style={styles.userName}>{getUserDisplayName(addressee)}</Text>
                         {addressee.username && <Text style={styles.userUsername}>@{addressee.username}</Text>}
                       </View>
                       {/* Just show "Pending" - can't cancel from here */}
                       <Text style={styles.pendingText}>Pending</Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -583,6 +607,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 8,
+    minWidth: 100,
   },
   activeTab: {
     backgroundColor: '#568A60',
@@ -597,6 +622,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 110, // Account for tab bar height (90px) + extra space
   },
   centerContent: {
     flex: 1,
