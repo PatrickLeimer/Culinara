@@ -1,26 +1,23 @@
 {
-  "name": "sweproject",
-  "main": "expo-router/entry",
-  "license": "0BSD",
+  "name": "projectswe",
   "version": "1.0.0",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+  "description": "By Ilani Seguinot, Vivian Rincon, Natalia Rojas, Patrick Leimer",
+  "main": "expo-router/entry",
+  "directories": {
+    "lib": "lib"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "@react-native-community/datetimepicker": "8.4.4",
-    "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.76.1",
-    "expo": "~54.0.25",
+    "expo": "^54.0.20",
     "expo-constants": "~18.0.10",
+    "expo-file-system": "~19.0.19",
     "expo-font": "~14.0.9",
-    "expo-linking": "~8.0.9",
-    "expo-router": "~6.0.15",
-    "expo-splash-screen": "~31.0.11",
+    "expo-image-picker": "~17.0.8",
+    "expo-linking": "~8.0.8",
+    "expo-router": "~6.0.13",
+    "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.9",
     "metro-minify-terser": "^0.83.3",
@@ -41,5 +38,19 @@
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PatrickLeimer/ProjectSWE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/PatrickLeimer/ProjectSWE/issues"
+  },
+  "homepage": "https://github.com/PatrickLeimer/ProjectSWE#readme"
 }

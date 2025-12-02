@@ -12,6 +12,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import RecipeCard, { Recipe, DEFAULT_ASSET_MAP } from '../profile_tabs/recipeCard';
 
 interface UserProfile {
   id: string;
@@ -19,15 +20,6 @@ interface UserProfile {
   lastname: string | null;
   username: string | null;
   email: string | null;
-}
-
-interface Recipe {
-  id: string;
-  Name: string | null;
-  Description: string | null;
-  Picture: string | null;
-  Tags: string[] | null;
-  created_at: string;
 }
 
 const FriendProfileScreen = () => {
@@ -67,18 +59,36 @@ const FriendProfileScreen = () => {
 
       setUserProfile(profile);
 
-      // Fetch friend's recipes
+      // Fetch friend's public recipes with lowercase column names
       const { data: recipesData, error: recipesError } = await supabase
         .from('Recipes')
-        .select('id, Name, Description, Picture, Tags, created_at')
-        .eq('user_id', id)
+        .select('id, name, description, picture, tags, created_at')
+        .eq('owner', id)
+        .eq('public', true)
         .order('created_at', { ascending: false });
 
       if (recipesError) {
         console.error('Error fetching recipes:', recipesError);
-      } else {
-        setRecipes(recipesData || []);
-        setRecipeCount(recipesData?.length || 0);
+      } else if (recipesData) {
+        const mapped: Recipe[] = recipesData.map((r: any) => {
+          const pic = r.picture || '';
+          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
+            ? DEFAULT_ASSET_MAP[pic] ?? '' 
+            : (pic || '');
+
+          return {
+            id: r.id,
+            name: r.name,
+            desc: r.description,
+            tags: r.tags || [],
+            ingredients: [],
+            image: image,
+            created_at: r.created_at,
+            user_id: id,
+          };
+        });
+        setRecipes(mapped);
+        setRecipeCount(mapped.length);
       }
 
       // Count friend's friends
@@ -141,77 +151,60 @@ const FriendProfileScreen = () => {
       <View style={styles.container}>
         {/* Header with back button */}
         <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-          <FontAwesome name="arrow-left" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <View style={styles.placeholder} />
+          <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
+            <FontAwesome name="arrow-left" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Profile Info */}
+          <View style={styles.profileSection}>
+            <Text style={styles.profileName}>{getDisplayName()}</Text>
+            {userProfile.username && (
+              <Text style={styles.profileUsername}>@{userProfile.username}</Text>
+            )}
+            {userProfile.email && (
+              <Text style={styles.profileEmail}>{userProfile.email}</Text>
+            )}
+          </View>
+
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>Friends</Text>
+              <Text style={styles.statNumber}>{friendCount}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>Recipes</Text>
+              <Text style={styles.statNumber}>{recipeCount}</Text>
+            </View>
+          </View>
+
+          {/* Recipes Section */}
+          <View style={styles.recipesSection}>
+            <Text style={styles.sectionTitle}>Recipes</Text>
+            {recipes.length === 0 ? (
+              <View style={styles.emptyState}>
+                <FontAwesome name="book" size={48} color="#999" style={{ marginBottom: 16 }} />
+                <Text style={styles.emptyText}>No public recipes yet</Text>
+              </View>
+            ) : (
+              <View style={styles.recipesGrid}>
+                {recipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    showLikeButtonInModal={false}
+                    assetMap={DEFAULT_ASSET_MAP}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
       </View>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
-          <Text style={styles.profileName}>{getDisplayName()}</Text>
-          {userProfile.username && (
-            <Text style={styles.profileUsername}>@{userProfile.username}</Text>
-          )}
-          {userProfile.email && (
-            <Text style={styles.profileEmail}>{userProfile.email}</Text>
-          )}
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Friends</Text>
-            <Text style={styles.statNumber}>{friendCount}</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Recipes</Text>
-            <Text style={styles.statNumber}>{recipeCount}</Text>
-          </View>
-        </View>
-
-        {/* Recipes Section */}
-        <View style={styles.recipesSection}>
-          <Text style={styles.sectionTitle}>Recipes</Text>
-          {recipes.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No recipes yet</Text>
-            </View>
-          ) : (
-            <View style={styles.recipesGrid}>
-              {recipes.map((recipe) => (
-                <View key={recipe.id} style={styles.recipeCard}>
-                  {recipe.Picture ? (
-                    <View style={[styles.recipeImage, { backgroundColor: '#E0E0E0' }]} />
-                  ) : (
-                    <View style={styles.recipeImage} />
-                  )}
-                  <Text style={styles.recipeTitle} numberOfLines={1}>
-                    {recipe.Name || 'Untitled Recipe'}
-                  </Text>
-                  {recipe.Description && (
-                    <Text style={styles.recipeDesc} numberOfLines={2}>
-                      {recipe.Description}
-                    </Text>
-                  )}
-                  {recipe.Tags && recipe.Tags.length > 0 && (
-                    <View style={styles.tagsContainer}>
-                      {recipe.Tags.slice(0, 3).map((tag, index) => (
-                        <View key={index} style={styles.tag}>
-                          <Text style={styles.tagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </View>
     </>
   );
 };
@@ -316,45 +309,6 @@ const styles = StyleSheet.create({
   recipesGrid: {
     gap: 15,
   },
-  recipeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-  },
-  recipeImage: {
-    width: '100%',
-    height: 150,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  recipeTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 6,
-    color: '#000',
-  },
-  recipeDesc: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tag: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#568A60',
-  },
   backButton: {
     backgroundColor: '#568A60',
     paddingHorizontal: 20,
@@ -372,4 +326,3 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 });
-
