@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,6 +9,7 @@ import {
   ScrollView 
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
 
 // ============================================================================
 // TYPES
@@ -28,6 +29,12 @@ export interface Recipe {
   Public?: boolean;
   created_at?: string;
   user_id?: string;
+}
+
+export interface IngredientRow {
+  name: string;
+  quantity?: string | null;
+  measurement_type?: string | null;
 }
 
 interface RecipeCardProps {
@@ -110,6 +117,9 @@ export const getRecipeDescription = (recipe: Recipe): string => {
   return recipe.desc || recipe.description || '';
 };
 
+// Display-only cleaner: strip anything starting with " by ..." (case-insensitive)
+const cleanIngredientName = (n: string) => (n || '').replace(/\s+by\b.*$/i, '').trim();
+
 export const getRecipeImage = (recipe: Recipe, assetMap = DEFAULT_ASSET_MAP) => {
   // First, check if the recipe has a proper image field
   if (recipe.image) {
@@ -146,6 +156,67 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   showLikeButtonInModal = true,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [ingredientRows, setIngredientRows] = useState<IngredientRow[] | null>(
+    recipe.ingredients ? (recipe.ingredients as string[]).map((n) => ({ name: cleanIngredientName(n) })) : null
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const loadIngredients = async () => {
+      // If recipe already has ingredients in the object, use them
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        setIngredientRows((recipe.ingredients as string[]).map((n) => ({ name: cleanIngredientName(n) })));
+        return;
+      }
+      if (!recipe.id) return;
+      try {
+        // 1) Fetch join rows without embedding (avoids ambiguous relationship error)
+        const { data: joinRows, error: joinErr } = await supabase
+          .from('Recipe_Ingredients')
+          .select('ingredient_id, quantity, unit')
+          .eq('recipe_id', recipe.id);
+        if (joinErr) {
+          console.warn('Could not load recipe ingredients join rows', recipe.id, joinErr.message || joinErr);
+          return;
+        }
+        if (!joinRows || joinRows.length === 0) {
+          setIngredientRows([]);
+          return;
+        }
+
+        // Collect unique ingredient_ids
+        const ids = Array.from(new Set(joinRows.map((r: any) => r.ingredient_id).filter(Boolean)));
+        if (ids.length === 0) {
+          setIngredientRows([]);
+          return;
+        }
+
+        // 2) Fetch ingredient names in a separate query
+        const { data: ingRows, error: ingErr } = await supabase
+          .from('Ingredients')
+          .select('id, name')
+          .in('id', ids);
+        if (ingErr) {
+          console.warn('Could not load canonical ingredient names', ingErr.message || ingErr);
+          return;
+        }
+        const nameById = new Map<string | number, string>();
+        (ingRows || []).forEach((r: any) => { nameById.set(r.id, r.name); });
+
+        const mapped = (joinRows || []).map((jr: any) => ({
+          name: cleanIngredientName(nameById.get(jr.ingredient_id) || ''),
+          quantity: jr.quantity ?? null,
+          measurement_type: jr.unit ?? null,
+        })).filter((x: any) => x.name);
+        if (!mounted) return;
+        setIngredientRows(mapped);
+      } catch (err) {
+        console.warn('Error loading ingredients for recipe', recipe.id, err);
+      }
+    };
+    loadIngredients();
+    return () => { mounted = false; };
+  }, [recipe.id]);
 
   const handleCardPress = () => {
     if (onPress) {
@@ -201,6 +272,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       <RecipeDetailModal
         visible={modalVisible}
         recipe={recipe}
+        ingredientRows={ingredientRows}
         onClose={() => setModalVisible(false)}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -220,6 +292,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 interface RecipeDetailModalProps {
   visible: boolean;
   recipe: Recipe;
+  ingredientRows?: IngredientRow[] | null;
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -232,6 +305,7 @@ interface RecipeDetailModalProps {
 export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
   visible,
   recipe,
+  ingredientRows,
   onClose,
   onEdit,
   onDelete,
@@ -270,11 +344,16 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
             )}
 
             {/* Ingredients */}
-            {recipe.ingredients && recipe.ingredients.length > 0 && (
+            {ingredientRows && ingredientRows.length > 0 && (
               <>
                 <Text style={styles.ingredientsLabel}>Ingredients</Text>
-                {recipe.ingredients.map((ing: string, i: number) => (
-                  <Text key={i} style={styles.ingredientItem}>• {ing}</Text>
+                {ingredientRows.map((ing: any, i: number) => (
+                  <View key={i} style={{ marginBottom: 6 }}>
+                    <Text style={styles.ingredientItem}>• {ing.name}</Text>
+                    {(ing.quantity || ing.measurement_type) && (
+                      <Text style={{ color: '#666', fontSize: 12, marginLeft: 12 }}>{(ing.quantity ?? '').toString()} {ing.measurement_type ?? ''}</Text>
+                    )}
+                  </View>
                 ))}
               </>
             )}
@@ -301,8 +380,8 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
                     color={isLiked ? "#fff" : "#FF4D4D"} 
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={[styles.modalButtonText, !isLiked && { color: '#FF4D4D' }]}>
-                    {isLiked ? 'Liked' : 'Like'}
+                  <Text style={[styles.modalButtonText, !isLiked && { color: '#FF4D4D' }]}> 
+                    {isLiked ? 'Unlike' : 'Like'}
                   </Text>
                 </TouchableOpacity>
               )}

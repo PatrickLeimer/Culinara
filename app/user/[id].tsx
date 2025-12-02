@@ -82,7 +82,7 @@ const FriendProfileScreen = () => {
       // =====================================================
       const { data: recipesData, error: recipesError } = await supabase
         .from('Recipes')
-        .select('id, name, description, picture, tags, public, created_at')
+        .select('id, name, description, picture, tags, created_at')
         .eq('owner', id)
         .eq('public', true)
         .order('created_at', { ascending: false });
@@ -91,20 +91,23 @@ const FriendProfileScreen = () => {
         console.error('Error fetching recipes:', recipesError);
         setRecipes([]);
       } else if (recipesData) {
-        const mapped: Recipe[] = recipesData.map((r: any) => ({
-          id: r.id,
-          name: r.name,
-          desc: r.description || '',
-          description: r.description || '',
-          ingredients: Array.isArray(r.ingredients) ? r.ingredients : (typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : []),
-          tags: r.tags || [],
-          public: !!r.public,
-          Public: !!r.public,
-          picture: r.picture ?? null,
-          Picture: r.picture ?? null,
-          created_at: r.created_at,
-          user_id: id,
-        }));
+        const mapped: Recipe[] = recipesData.map((r: any) => {
+          const pic = r.picture || '';
+          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
+            ? DEFAULT_ASSET_MAP[pic] ?? '' 
+            : (pic || '');
+
+          return {
+            id: r.id,
+            name: r.name,
+            desc: r.description,
+            tags: r.tags || [],
+            ingredients: [],
+            image: image,
+            created_at: r.created_at,
+            user_id: id,
+          };
+        });
         setRecipes(mapped);
       }
 

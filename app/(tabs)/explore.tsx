@@ -46,7 +46,7 @@ export default function ExploreScreen() {
               name: d.name,
               desc: d.description,
               tags: d.tags || [],
-              ingredients: parsedIngredients,
+              ingredients: [],
               image: image,
               created_at: d.created_at,
               user_id: d.owner,

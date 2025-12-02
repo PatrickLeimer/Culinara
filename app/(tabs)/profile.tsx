@@ -123,7 +123,7 @@ const Profile: React.FC = () => {
           name: r.name,
           desc: r.description || '',
           description: r.description || '',
-          ingredients: Array.isArray(r.ingredients) ? r.ingredients : (typeof r.ingredients === 'string' ? JSON.parse(r.ingredients) : []),
+          ingredients: [],
           tags: r.tags || [],
           public: !!r.public,
           Public: !!r.public,
