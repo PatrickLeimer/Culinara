@@ -352,8 +352,8 @@ export default function FriendsScreen() {
 // ======================== STYLES ========================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#d6ddd6ff', paddingTop: 50, paddingHorizontal: 20 },
-  header: { alignItems: 'center', marginVertical: 10 },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#000' },
+  header: { alignItems: 'center', marginVertical: 24 },
+  headerTitle: { fontSize: 32, fontWeight: '700', color: '#000', letterSpacing: -0.5 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,6 +372,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 15,
     maxHeight: 200,
+  },
+  searchResultsList: {
+    maxHeight: 180,
   },
   tabsContainer: {
     flexDirection: 'row',
