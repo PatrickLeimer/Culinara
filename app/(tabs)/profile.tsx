@@ -436,9 +436,9 @@ const Profile: React.FC = () => {
           }
         ]}
       >
-        {[
+          {[
           { id: 'myRecipes', label: 'Recipes', icon: 'book', showLabel: true },
-          { id: 'mealPlan', label: '', icon: 'calendar', showLabel: true },
+          { id: 'mealPlan', label: '', icon: 'calendar', showLabel: false },
           { id: 'liked', label: '', icon: 'heart', showLabel: false },
           { id: 'groceries', label: '', icon: 'shopping-basket', showLabel: false },
         ].map((tab) => {
@@ -449,6 +449,7 @@ const Profile: React.FC = () => {
               style={[
                 styles.tab,
                 isActive && styles.activeTab,
+                tab.id === 'myRecipes' && { flex: 1.3 },
               ]}
               onPress={() => {
                 setActiveTab(tab.id as any);
@@ -488,7 +489,7 @@ export default Profile;
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#fff' 
+    backgroundColor: '#d6ddd6ff' 
   },
   
   scrollContent: {

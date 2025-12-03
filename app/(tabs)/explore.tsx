@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TextInput, ScrollView, DeviceEventEmitter, TouchableOpacity, RefreshControl, Animated } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  DeviceEventEmitter,
+  RefreshControl,
+  Animated,
+  ActivityIndicator,
+} from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Text } from '@/components/Themed';
 import { useLikes } from '@/components/LikesContext';
@@ -9,13 +19,15 @@ import RecipeCard, { Recipe, MOCK_RECIPES, DEFAULT_ASSET_MAP } from '../profile_
 export default function ExploreScreen() {
   const { like, unlike, isLiked } = useLikes();
   const categories = ['Healthy', 'Quick', 'Low-Budget', 'Lunch', 'Dinner', 'Vegan', 'Dessert'];
+
   const [recipes, setRecipes] = useState<Recipe[]>(MOCK_RECIPES);
   const [allRecipes, setAllRecipes] = useState<Recipe[]>(MOCK_RECIPES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Animation values
+  const [loading, setLoading] = useState(true);
+
+  // Animations
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerTranslateY = useRef(new Animated.Value(-20)).current;
   const searchOpacity = useRef(new Animated.Value(0)).current;
@@ -27,144 +39,103 @@ export default function ExploreScreen() {
   }))).current;
   const recipeAnimations = useRef<Animated.Value[]>([]).current;
 
-  // Helper function to shuffle array randomly
-  const shuffleArray = <T,>(array: T[]): T[] => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  // Helper function to fetch ingredients for recipes
-  const fetchRecipeIngredients = async (recipeIds: string[]): Promise<Record<string, string[]>> => {
-    if (recipeIds.length === 0) return {};
-
-    try {
-      const { data, error } = await supabase
-        .from('Recipe_Ingredients')
-        .select(`
-          recipe_id,
-          Ingredients (
-            name
-          )
-        `)
-        .in('recipe_id', recipeIds);
-
-      if (error) {
-        console.error('Error fetching recipe ingredients:', error);
-        return {};
-      }
-
-      // Group ingredients by recipe_id
-      const ingredientsMap: Record<string, string[]> = {};
-      if (data) {
-        data.forEach((ri: any) => {
-          if (ri.recipe_id && ri.Ingredients?.name) {
-            if (!ingredientsMap[ri.recipe_id]) {
-              ingredientsMap[ri.recipe_id] = [];
-            }
-            ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
-          }
-        });
-      }
-
-      return ingredientsMap;
-    } catch (err) {
-      console.error('Unexpected error fetching recipe ingredients:', err);
-      return {};
-    }
-  };
-
+  // --- Fetch recipes ---
   const fetchPublicRecipes = async (isRefreshing = false) => {
-    if (isRefreshing) {
-      setRefreshing(true);
-    }
-    
+    if (isRefreshing) setRefreshing(true);
     try {
       const { data, error } = await supabase
         .from('Recipes')
         .select('id, name, description, picture, tags, created_at, owner')
-        .eq('public', true);
+        .eq('public', true)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching public recipes:', error);
-        return;
-      }
+      if (error) throw error;
 
       let mapped: Recipe[] = [];
-      if (data && data.length) {
-        // Fetch ingredients for all recipes
-        const recipeIds = data.map((r: any) => r.id);
-        const ingredientsMap = await fetchRecipeIngredients(recipeIds);
-
+      if (data?.length) {
         mapped = data.map((d: any) => {
           const pic = d.picture || '';
-          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
-            ? DEFAULT_ASSET_MAP[pic] ?? '' 
-            : (pic || '');
-          
+          const image =
+            pic && typeof pic === 'string' && pic.startsWith('assets/')
+              ? DEFAULT_ASSET_MAP[pic] ?? ''
+              : pic;
+          const parsedTags = Array.isArray(d.tags)
+            ? d.tags
+            : typeof d.tags === 'string'
+            ? JSON.parse(d.tags)
+            : [];
           return {
             id: d.id,
             name: d.name,
             desc: d.description,
-            tags: d.tags || [],
-            ingredients: ingredientsMap[d.id] || [],
-            image: image,
+            tags: parsedTags,
+            ingredients: [],
+            image,
             created_at: d.created_at,
             user_id: d.owner,
           };
         });
-        
-        // Randomize the order of recipes
-        mapped = shuffleArray(mapped);
       }
 
       const recipesToUse = mapped.length ? mapped : MOCK_RECIPES;
       setAllRecipes(recipesToUse);
       setRecipes(recipesToUse);
     } catch (err) {
-      console.error('Unexpected error fetching public recipes:', err);
+      console.error('Error fetching public recipes:', err);
     } finally {
-      if (isRefreshing) {
-        setRefreshing(false);
-      }
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Animate header on mount
+  useEffect(() => {
+    fetchPublicRecipes();
+    const sub = DeviceEventEmitter.addListener('recipesUpdated', fetchPublicRecipes);
+    return () => {
+      try {
+        sub.remove();
+      } catch {}
+    };
+  }, []);
+
+  // --- Filters ---
+  useEffect(() => {
+    let filtered = [...allRecipes];
+    const query = searchQuery.trim().toLowerCase();
+
+    if (query) {
+      filtered = filtered.filter((recipe) => {
+        const nameMatch = recipe.name?.toLowerCase().includes(query);
+        const descMatch = recipe.desc?.toLowerCase().includes(query);
+        const tagsMatch = recipe.tags?.some((t) => t.toLowerCase().includes(query));
+        const ingredientsMatch = recipe.ingredients?.some((i) =>
+          i.toLowerCase().includes(query)
+        );
+        return nameMatch || descMatch || tagsMatch || ingredientsMatch;
+      });
+    }
+
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter((recipe) =>
+        selectedCategories.every((c) => recipe.tags?.includes(c))
+      );
+    }
+
+    setRecipes(filtered);
+  }, [searchQuery, selectedCategories, allRecipes]);
+
+  // --- Animations on mount ---
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(headerOpacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerTranslateY, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      Animated.timing(headerOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(headerTranslateY, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
 
-    // Animate search bar
     Animated.parallel([
-      Animated.timing(searchOpacity, {
-        toValue: 1,
-        duration: 500,
-        delay: 200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(searchScale, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
+      Animated.timing(searchOpacity, { toValue: 1, duration: 500, delay: 200, useNativeDriver: true }),
+      Animated.spring(searchScale, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
     ]).start();
 
-    // Animate categories with stagger
     categoryAnimations.forEach((anim, index) => {
       Animated.parallel([
         Animated.timing(anim.opacity, {
@@ -190,142 +161,75 @@ export default function ExploreScreen() {
     });
   }, []);
 
-  // Animate recipes when they change
+  // Animate recipe cards on filter
   useEffect(() => {
-    // Reset and animate all recipes
-    recipes.forEach((_, index) => {
-      if (!recipeAnimations[index]) {
-        recipeAnimations[index] = new Animated.Value(0);
-      } else {
-        recipeAnimations[index].setValue(0);
-      }
-      Animated.timing(recipeAnimations[index], {
+    recipes.forEach((_, i) => {
+      if (!recipeAnimations[i]) recipeAnimations[i] = new Animated.Value(0);
+      Animated.timing(recipeAnimations[i], {
         toValue: 1,
         duration: 400,
-        delay: index * 50,
+        delay: i * 60,
         useNativeDriver: true,
       }).start();
     });
-  }, [recipes.length]);
+  }, [recipes]);
 
-  useEffect(() => {
-    let mounted = true;
-    
-    if (mounted) {
-      fetchPublicRecipes();
-    }
-
-    const sub = DeviceEventEmitter.addListener('recipesUpdated', () => fetchPublicRecipes());
-
-    return () => {
-      mounted = false;
-      try { sub.remove(); } catch (e) { /* ignore */ }
-    };
-  }, []);
-
-  const onRefresh = () => {
-    fetchPublicRecipes(true);
-  };
-
-  // Filter recipes based on search query and selected categories
-  useEffect(() => {
-    let filtered = [...allRecipes];
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((recipe) => {
-        const nameMatch = recipe.name?.toLowerCase().includes(query);
-        const descMatch = recipe.desc?.toLowerCase().includes(query);
-        const ingredientsMatch = recipe.ingredients?.some((ing) =>
-          ing.toLowerCase().includes(query)
-        );
-        const tagsMatch = recipe.tags?.some((tag) =>
-          tag.toLowerCase().includes(query)
-        );
-        return nameMatch || descMatch || ingredientsMatch || tagsMatch;
-      });
-    }
-
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filtered = filtered.filter((recipe) =>
-        selectedCategories.every((category) =>
-          recipe.tags?.includes(category)
-        )
-      );
-    }
-
-    setRecipes(filtered);
-  }, [searchQuery, selectedCategories, allRecipes]);
+  // --- Handlers ---
+  const onRefresh = () => fetchPublicRecipes(true);
 
   const toggleCategory = (category: string, index: number) => {
     const anim = categoryAnimations[index];
-    const isSelected = selectedCategories.includes(category);
-    
-    // Animate category selection
     Animated.sequence([
-      Animated.spring(anim.scale, {
-        toValue: 0.9,
-        useNativeDriver: true,
-      }),
-      Animated.spring(anim.scale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
+      Animated.spring(anim.scale, { toValue: 0.9, useNativeDriver: true }),
+      Animated.spring(anim.scale, { toValue: 1, useNativeDriver: true }),
     ]).start();
 
-    if (isSelected) {
-      setSelectedCategories(selectedCategories.filter((c) => c !== category));
-    } else {
-      setSelectedCategories([...selectedCategories, category]);
-    }
-  };
-
-  const handlePlusPress = (recipe: Recipe) => {
-    console.log('Add to meal plan:', recipe.name);
-    // TODO: Implement add to meal plan functionality
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
   };
 
   const handleHeartPress = async (recipe: Recipe) => {
     const id = String(recipe?.id ?? '');
     if (!id) return;
-
     try {
-      if (isLiked(id)) {
-        await unlike(id);
-      } else {
-        await like({ recipe_id: id });
-      }
+      if (isLiked(id)) await unlike(id);
+      else await like({ recipe_id: id });
     } catch (e) {
       console.error('Failed to toggle like for', id, e);
     }
   };
 
+  const handlePlusPress = (recipe: Recipe) => {
+    console.log('Add to meal plan:', recipe.name);
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#568A60" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.header,
-          {
-            opacity: headerOpacity,
-            transform: [{ translateY: headerTranslateY }],
-          }
+          { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] },
         ]}
       >
         <Text style={styles.headerTitle}>Explore</Text>
         <Text style={styles.headerSubtitle}>Discover amazing recipes</Text>
       </Animated.View>
 
-      {/* Search Bar */}
-      <Animated.View 
+      {/* Search */}
+      <Animated.View
         style={[
           styles.searchContainer,
-          {
-            opacity: searchOpacity,
-            transform: [{ scale: searchScale }],
-          }
+          { opacity: searchOpacity, transform: [{ scale: searchScale }] },
         ]}
       >
         <View style={styles.searchIconContainer}>
@@ -339,17 +243,13 @@ export default function ExploreScreen() {
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearButton}
-            onPress={() => setSearchQuery('')}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
             <FontAwesome name="times-circle" size={18} color="#999" />
           </TouchableOpacity>
         )}
       </Animated.View>
 
-      {/* Scrollable Content */}
+      {/* Scroll */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -358,7 +258,7 @@ export default function ExploreScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="#568A60"
-            colors={["#568A60"]}
+            colors={['#568A60']}
           />
         }
       >
@@ -371,55 +271,41 @@ export default function ExploreScreen() {
             </TouchableOpacity>
           )}
         </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoriesScroll}
           contentContainerStyle={styles.categoriesScrollContent}
         >
-          {categories.map((category, index) => {
-            const isSelected = selectedCategories.includes(category);
-            const anim = categoryAnimations[index];
-            const greenShades = ['#568A60', '#4A7C52', '#5B9A6B', '#4D8B5A', '#6BA87A', '#5C9A6C', '#4F8B5F'];
-            const shade = greenShades[index % greenShades.length];
-            
+          {categories.map((cat, i) => {
+            const isSelected = selectedCategories.includes(cat);
+            const anim = categoryAnimations[i];
+            const shade = ['#568A60', '#4A7C52', '#5B9A6B'][i % 3];
             return (
               <Animated.View
-                key={index}
+                key={cat}
                 style={{
                   opacity: anim.opacity,
-                  transform: [
-                    { scale: anim.scale },
-                    { translateX: anim.translateX }
-                  ],
+                  transform: [{ scale: anim.scale }, { translateX: anim.translateX }],
                 }}
               >
-                <TouchableOpacity
-                  onPress={() => toggleCategory(category, index)}
-                  style={styles.categoryBox}
-                  activeOpacity={0.7}
-                >
-                  <Animated.View 
+                <TouchableOpacity onPress={() => toggleCategory(cat, i)} style={styles.categoryBox}>
+                  <View
                     style={[
                       styles.categorySquare,
-                      isSelected && [styles.categorySquareSelected, { backgroundColor: shade }]
+                      isSelected && [styles.categorySquareSelected, { backgroundColor: shade }],
                     ]}
                   >
-                    {isSelected && (
-                      <Animated.View
-                        style={{
-                          transform: [{ scale: anim.scale }],
-                        }}
-                      >
-                        <FontAwesome name="check" size={20} color="#fff" />
-                      </Animated.View>
-                    )}
-                  </Animated.View>
-                  <Text style={[
-                    styles.categoryLabel,
-                    isSelected && [styles.categoryLabelSelected, { color: shade }]
-                  ]}>
-                    {category}
+                    {isSelected && <FontAwesome name="check" size={20} color="#fff" />}
+                  </View>
+                  <Text
+                    style={[
+                      styles.categoryLabel,
+                      isSelected && [styles.categoryLabelSelected, { color: shade }],
+                    ]}
+                  >
+                    {cat}
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
@@ -443,21 +329,20 @@ export default function ExploreScreen() {
             </View>
           )}
         </View>
+
         <View style={styles.recipesContainer}>
           {recipes.length === 0 ? (
             <View style={styles.noResultsContainer}>
-              <FontAwesome name="search" size={48} color="#999" style={{ marginBottom: 16 }} />
+              <FontAwesome name="search" size={48} color="#999" />
               <Text style={styles.noResultsTitle}>No recipes found</Text>
-              <Text style={styles.noResultsText}>
-                Try adjusting your search or filters
-              </Text>
+              <Text style={styles.noResultsText}>Try adjusting your filters</Text>
             </View>
           ) : (
-            recipes.map((r, index) => {
-              const animValue = recipeAnimations[index] || new Animated.Value(0);
+            recipes.map((r, i) => {
+              const animValue = recipeAnimations[i] || new Animated.Value(0);
               return (
                 <Animated.View
-                  key={r.id ?? index}
+                  key={r.id ?? i}
                   style={{
                     opacity: animValue,
                     transform: [
@@ -472,7 +357,7 @@ export default function ExploreScreen() {
                 >
                   <RecipeCard
                     recipe={r}
-                    showOverlayButtons={true}
+                    showOverlayButtons
                     onPlusPress={() => handlePlusPress(r)}
                     onHeartPress={() => handleHeartPress(r)}
                     isLiked={isLiked(String(r.id ?? ''))}
@@ -490,29 +375,11 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 6,
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: '#666',
-    fontWeight: '400',
-  },
+  container: { flex: 1, backgroundColor: '#d6ddd6ff', paddingHorizontal: 20, paddingTop: 50 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { alignItems: 'center', marginVertical: 24 },
+  headerTitle: { fontSize: 32, fontWeight: '700', color: '#000', marginBottom: 6 },
+  headerSubtitle: { fontSize: 15, color: '#666' },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -521,65 +388,23 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     marginBottom: 24,
-    paddingHorizontal: 0,
     height: 52,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
   },
-  searchIconContainer: {
-    paddingLeft: 16,
-    paddingRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-    paddingVertical: 0,
-  },
-  clearButton: {
-    paddingRight: 16,
-    paddingLeft: 8,
-  },
-  scrollContent: {
-    paddingBottom: 110, // Account for tab bar height (90px) + extra space
-  },
+  searchIconContainer: { paddingLeft: 16, paddingRight: 12 },
+  searchInput: { flex: 1, fontSize: 16, color: '#000' },
+  clearButton: { paddingRight: 16, paddingLeft: 8 },
+  scrollContent: { paddingBottom: 100 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
     marginBottom: 14,
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#000',
-    letterSpacing: -0.3,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
-    fontWeight: '400',
-  },
-  clearFiltersText: {
-    fontSize: 14,
-    color: '#568A60',
-    fontWeight: '600',
-  },
-  categoriesScroll: {
-    marginBottom: 28,
-  },
-  categoriesScrollContent: {
-    paddingRight: 20,
-  },
-  categoryBox: {
-    alignItems: 'center',
-    marginRight: 18,
-  },
+  sectionTitle: { fontSize: 22, fontWeight: '700', color: '#000' },
+  clearFiltersText: { fontSize: 14, color: '#568A60', fontWeight: '600' },
+  categoriesScroll: { marginBottom: 28 },
+  categoriesScrollContent: { paddingRight: 20 },
+  categoryBox: { alignItems: 'center', marginRight: 18 },
   categorySquare: {
     width: 72,
     height: 72,
@@ -603,56 +428,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  categoryLabel: {
-    marginTop: 10,
-    fontSize: 12,
-    color: '#888',
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  categoryLabelSelected: {
-    color: '#568A60',
-    fontWeight: '700',
-  },
+  categoryLabel: { marginTop: 10, fontSize: 12, color: '#888', fontWeight: '600' },
+  categoryLabelSelected: { color: '#568A60', fontWeight: '700' },
   recipeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: 28,
+    alignItems: 'center',
     marginBottom: 16,
   },
-  resultCountContainer: {
-    backgroundColor: '#f0f7f2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  resultCount: {
-    fontSize: 13,
-    color: '#568A60',
-    fontWeight: '600',
-  },
-  recipesContainer: {
-    marginTop: 8,
-  },
-  noResultsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 100,
-    paddingHorizontal: 20,
-  },
-  noResultsTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  noResultsText: {
-    fontSize: 15,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+  resultCount: { fontSize: 14, color: '#568A60', fontWeight: '600' },
+  recipesContainer: { marginTop: 8 },
+  noResultsContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
+  noResultsTitle: { fontSize: 22, fontWeight: '600', color: '#000', marginVertical: 8 },
+  noResultsText: { fontSize: 15, color: '#888', textAlign: 'center' },
 });

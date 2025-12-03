@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useLikes } from '@/components/LikesContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import RecipeCard, { Recipe, DEFAULT_ASSET_MAP } from './recipeCard';
+import RecipeCard, { Recipe, DEFAULT_ASSET_MAP, MOCK_RECIPES } from './recipeCard';
 
 export default function LikedRecipes() {
   const { likes, unlike, isLiked } = useLikes();
@@ -25,62 +25,49 @@ export default function LikedRecipes() {
       setLoading(true);
       const recipeIds = likes.map((like) => like.recipe_id);
 
-      const { data, error } = await supabase
-        .from('Recipes')
-        .select('id, name, description, picture, tags, created_at, owner')
-        .in('id', recipeIds);
+      // Separate valid UUIDs from demo/non-UUID ids to avoid Postgres 22P02 errors
+      const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+      const validIds = recipeIds.filter((id) => isUuid(String(id)));
+      const invalidIds = recipeIds.filter((id) => !isUuid(String(id)));
 
-      if (error) {
-        console.error('Error fetching liked recipes:', error);
-        setLikedRecipes([]);
-        return;
-      }
+      let mapped: Recipe[] = [];
 
-      if (data) {
-        // Fetch ingredients for all recipes
-        const ingredientsMap: Record<string, string[]> = {};
-        if (recipeIds.length > 0) {
-          const { data: recipeIngredients, error: riError } = await supabase
-            .from('Recipe_Ingredients')
-            .select(`
-              recipe_id,
-              Ingredients (
-                name
-              )
-            `)
-            .in('recipe_id', recipeIds);
+      if (validIds.length > 0) {
+        const { data, error } = await supabase
+          .from('Recipes')
+          .select('id, name, description, picture, tags, created_at, owner')
+          .in('id', validIds);
 
-          if (!riError && recipeIngredients) {
-            recipeIngredients.forEach((ri: any) => {
-              if (ri.recipe_id && ri.Ingredients?.name) {
-                if (!ingredientsMap[ri.recipe_id]) {
-                  ingredientsMap[ri.recipe_id] = [];
-                }
-                ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
-              }
-            });
-          }
+        if (error) {
+          console.error('Error fetching liked recipes:', error);
+        } else if (data) {
+          mapped = data.map((d: any) => {
+            const pic = d.picture || '';
+            const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
+              ? DEFAULT_ASSET_MAP[pic] ?? '' 
+              : (pic || '');
+
+            return {
+              id: d.id,
+              name: d.name,
+              desc: d.description,
+              tags: d.tags || [],
+              ingredients: [],
+              image: image,
+              created_at: d.created_at,
+              user_id: d.owner,
+            };
+          });
         }
-
-        const mapped: Recipe[] = data.map((d: any) => {
-          const pic = d.picture || '';
-          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
-            ? DEFAULT_ASSET_MAP[pic] ?? '' 
-            : (pic || '');
-
-          return {
-            id: d.id,
-            name: d.name,
-            desc: d.description,
-            tags: d.tags || [],
-            ingredients: ingredientsMap[d.id] || [],
-            image: image,
-            created_at: d.created_at,
-            user_id: d.owner,
-          };
-        });
-        setLikedRecipes(mapped);
       }
+
+      // Include any local/mock recipes liked during demo (non-UUID ids)
+      if (invalidIds.length > 0) {
+        const mockMatches = MOCK_RECIPES.filter((r) => invalidIds.includes(String(r.id)));
+        if (mockMatches.length) mapped = [...mapped, ...mockMatches];
+      }
+
+      setLikedRecipes(mapped);
     } catch (err) {
       console.error('Unexpected error fetching liked recipes:', err);
       setLikedRecipes([]);
