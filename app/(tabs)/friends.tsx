@@ -315,7 +315,7 @@ export default function FriendsScreen() {
                           <Text style={styles.requestButtonText}>Reject</Text>
                         </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
@@ -335,7 +335,7 @@ export default function FriendsScreen() {
                         {addressee.username && <Text style={styles.userUsername}>@{addressee.username}</Text>}
                       </View>
                       <Text style={styles.pendingText}>Pending</Text>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
