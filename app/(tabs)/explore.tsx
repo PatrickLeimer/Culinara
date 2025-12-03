@@ -315,11 +315,18 @@ export default function ExploreScreen() {
 
         {/* Recipes */}
         <View style={styles.recipeHeader}>
-          <Text style={styles.sectionTitle}>Recipes</Text>
+          <View>
+            <Text style={styles.sectionTitle}>Recipes</Text>
+            {!searchQuery && selectedCategories.length === 0 && (
+              <Text style={styles.sectionSubtitle}>Discover new flavors</Text>
+            )}
+          </View>
           {(searchQuery || selectedCategories.length > 0) && (
-            <Text style={styles.resultCount}>
-              {recipes.length} {recipes.length === 1 ? 'result' : 'results'}
-            </Text>
+            <View style={styles.resultCountContainer}>
+              <Text style={styles.resultCount}>
+                {recipes.length} {recipes.length === 1 ? 'result' : 'results'}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -407,6 +414,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categorySquareSelected: {
     borderColor: '#568A60',

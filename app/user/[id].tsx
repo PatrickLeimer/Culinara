@@ -24,6 +24,15 @@ interface UserProfile {
   email: string | null;
 }
 
+interface ExpandedFriend {
+  friendship_id: number;
+  friend_id: string;
+  friend_username: string | null;
+  friend_name: string | null;
+  friend_email: string | null;
+  created_at: string;
+}
+
 const FriendProfileScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -47,6 +56,8 @@ const FriendProfileScreen = () => {
 
     if (id) fetchFriendProfile();
   }, [id]);
+
+  // Don't auto-fetch friends - only fetch when modal opens for performance
 
   const fetchFriendProfile = async () => {
     if (!id) return;
@@ -291,10 +302,14 @@ const FriendProfileScreen = () => {
 
           {/* Stats */}
           <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
+            <TouchableOpacity 
+              style={styles.statBox}
+              onPress={handleFriendsModalOpen}
+              activeOpacity={0.7}
+            >
               <Text style={styles.statLabel}>Friends</Text>
               <Text style={styles.statNumber}>{friendCount}</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Recipes</Text>
               <Text style={styles.statNumber}>{recipeCount}</Text>
@@ -355,6 +370,7 @@ const FriendProfileScreen = () => {
             )}
           </View>
         </ScrollView>
+
       </View>
     </>
   );

@@ -219,7 +219,11 @@ export default function FriendsScreen() {
           <Text style={styles.sectionTitle}>Search Results</Text>
           <ScrollView style={styles.searchResultsList}>
             {searchResults.map((user) => (
-              <View key={user.id} style={styles.userItem}>
+              <TouchableOpacity
+                key={user.id}
+                style={styles.userItem}
+                onPress={() => router.push(`/user/${user.id}` as any)}
+              >
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{getUserDisplayName(user)}</Text>
                   {user.username && <Text style={styles.userUsername}>@{user.username}</Text>}
@@ -227,7 +231,7 @@ export default function FriendsScreen() {
                 <TouchableOpacity style={styles.addButton} onPress={() => sendFriendRequest(user.id)}>
                   <Text style={styles.addButtonText}>Add</Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -311,7 +315,7 @@ export default function FriendsScreen() {
                           <Text style={styles.requestButtonText}>Reject</Text>
                         </TouchableOpacity>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -331,7 +335,7 @@ export default function FriendsScreen() {
                         {addressee.username && <Text style={styles.userUsername}>@{addressee.username}</Text>}
                       </View>
                       <Text style={styles.pendingText}>Pending</Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>

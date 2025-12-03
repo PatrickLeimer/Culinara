@@ -127,7 +127,7 @@ export default function LikedRecipes() {
 const styles = StyleSheet.create({
   container: { 
     padding: 12,
-    paddingBottom: 30,
+    paddingBottom: 110, // Account for tab bar height (90px) + extra space
   },
   empty: { 
     flex: 1, 

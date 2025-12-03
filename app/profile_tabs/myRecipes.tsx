@@ -60,7 +60,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setAddEditModalVisible(true);
   };
 
-  const openEditModal = (index: number) => {
+  const openEditModal = async (index: number) => {
     const recipe = recipes[index];
     setEditingIndex(index);
     setNewRecipeName(recipe.name);
@@ -74,6 +74,35 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     setNewRecipePublic(recipe.public ?? recipe.Public ?? true);
     setNewRecipePicture(recipe.picture || recipe.Picture || null);
     setNewRecipePictureUri(recipe.picture || recipe.Picture || null);
+    
+    // Fetch ingredients from Recipe_Ingredients table
+    if (recipe.id) {
+      try {
+        const { data: recipeIngredients, error } = await supabase
+          .from('Recipe_Ingredients')
+          .select(`
+            Ingredients (
+              name
+            )
+          `)
+          .eq('recipe_id', recipe.id);
+
+        if (!error && recipeIngredients) {
+          const ingredientNames = recipeIngredients
+            .map((ri: any) => ri.Ingredients?.name)
+            .filter((name: string | undefined) => name !== undefined && name !== null);
+          setSelectedIngredients(ingredientNames);
+        } else {
+          setSelectedIngredients(recipe.ingredients || []);
+        }
+      } catch (err) {
+        console.error('Error fetching recipe ingredients:', err);
+        setSelectedIngredients(recipe.ingredients || []);
+      }
+    } else {
+      setSelectedIngredients(recipe.ingredients || []);
+    }
+    
     setAddEditModalVisible(true);
   };
 
@@ -208,7 +237,94 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
     }
   };
 
+  // Helper function to find or create an ingredient
+  const findOrCreateIngredient = async (ingredientName: string, userId: string): Promise<number | null> => {
+    try {
+      // First, try to find existing ingredient (case-insensitive, user-specific or global)
+      const { data: existing, error: findError } = await supabase
+        .from('Ingredients')
+        .select('id')
+        .ilike('name', ingredientName.trim())
+        .or(`user_id.is.null,user_id.eq.${userId}`)
+        .limit(1)
+        .single();
+
+      if (existing && !findError) {
+        return existing.id;
+      }
+
+      // If not found, create a new ingredient
+      const { data: newIngredient, error: createError } = await supabase
+        .from('Ingredients')
+        .insert({
+          name: ingredientName.trim(),
+          user_id: userId,
+        })
+        .select('id')
+        .single();
+
+      if (createError || !newIngredient) {
+        console.error('Error creating ingredient:', createError);
+        return null;
+      }
+
+      return newIngredient.id;
+    } catch (err) {
+      console.error('Unexpected error in findOrCreateIngredient:', err);
+      return null;
+    }
+  };
+
+  // Helper function to save recipe ingredients
+  const saveRecipeIngredients = async (recipeId: string, ingredientNames: string[], userId: string) => {
+    try {
+      // Delete existing recipe ingredients
+      await supabase
+        .from('Recipe_Ingredients')
+        .delete()
+        .eq('recipe_id', recipeId);
+
+      if (ingredientNames.length === 0) return;
+
+      // Find or create each ingredient and create Recipe_Ingredients entries
+      const recipeIngredientPromises = ingredientNames.map(async (ingredientName) => {
+        const ingredientId = await findOrCreateIngredient(ingredientName, userId);
+        if (ingredientId) {
+          return {
+            recipe_id: recipeId,
+            ingredient_id: ingredientId,
+            quantity: '', // You can add quantity/unit fields to the UI later
+            unit: '',
+          };
+        }
+        return null;
+      });
+
+      const recipeIngredients = (await Promise.all(recipeIngredientPromises)).filter(
+        (ri) => ri !== null
+      ) as Array<{ recipe_id: string; ingredient_id: number; quantity: string; unit: string }>;
+
+      if (recipeIngredients.length > 0) {
+        const { error } = await supabase
+          .from('Recipe_Ingredients')
+          .insert(recipeIngredients);
+
+        if (error) {
+          console.error('Error saving recipe ingredients:', error);
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error saving recipe ingredients:', err);
+    }
+  };
+
   const handleSaveRecipe = async () => {
+    // Validate required fields
+    if (!newRecipeName.trim()) {
+      Alert.alert('Validation Error', 'Please enter a recipe name.');
+      return;
+    }
+
     const newRecipe: Recipe = {
       name: newRecipeName,
       description: newRecipeDescription,
@@ -304,7 +420,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
       }
     } catch (err) {
       console.error('Unexpected error saving recipe:', err);
-      Alert.alert('Error', 'Unexpected error while saving recipe.');
+      Alert.alert('Error', `Unexpected error while saving recipe: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -463,7 +579,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
         <FontAwesome name="plus" size={20} color="#fff" />
       </TouchableOpacity>
 
-      <ScrollView contentContainerStyle={styles.grid}>
+      <ScrollView contentContainerStyle={[styles.grid, { paddingBottom: 110 }]}>
         {recipes.length === 0 ? (
           <View style={styles.emptyStateContainer}>
             <FontAwesome name="book" size={48} color="#999" style={{ marginBottom: 16 }} />
@@ -695,14 +811,60 @@ const styles = StyleSheet.create({
   emptyStateTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
   emptyStateText: { fontSize: 14, color: '#666', textAlign: 'center' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', padding: 20 },
-  modalContentEdit: { width: '100%', height: '90%', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' },
+  modalContentEdit: { 
+    width: '100%', 
+    height: '90%', 
+    backgroundColor: '#fff', 
+    borderRadius: 20, 
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
   modalScrollContent: { padding: 20, paddingBottom: 40 },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
+  modalTitle: { fontSize: 24, fontWeight: '600', marginBottom: 20, color: '#000', letterSpacing: 0.2 },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
-  cancelButton: { backgroundColor: '#ccc', padding: 12, borderRadius: 8, flex: 1, marginRight: 8 },
-  saveButton: { backgroundColor: '#5b8049ff', padding: 12, borderRadius: 8, flex: 1, marginLeft: 8 },
-  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
-  input: { borderWidth: 1, color: '#333', borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10, backgroundColor: '#fff' },
+  cancelButton: { 
+    backgroundColor: '#f5f5f5', 
+    padding: 14, 
+    borderRadius: 10, 
+    flex: 1, 
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  saveButton: { 
+    backgroundColor: '#568A60', 
+    padding: 14, 
+    borderRadius: 10, 
+    flex: 1, 
+    marginLeft: 8,
+    shadowColor: '#568A60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: { 
+    color: '#fff', 
+    fontWeight: '600', 
+    textAlign: 'center',
+    fontSize: 16,
+    letterSpacing: 0.3,
+  },
+  input: { 
+    borderWidth: 1, 
+    color: '#000', 
+    borderColor: '#568A60', 
+    padding: 12, 
+    borderRadius: 10, 
+    marginBottom: 16, 
+    backgroundColor: '#fff',
+    fontSize: 16,
+    height: 50,
+  },
   textArea: { height: 80, textAlignVertical: 'top' },
   label: { fontSize: 16, fontWeight: 'bold', marginTop: 8, color: '#333', marginBottom: 8 },
   dropdownList: { maxHeight: 100, marginVertical: 8 },
@@ -710,8 +872,23 @@ const styles = StyleSheet.create({
   dropdownText: { fontSize: 16, color: '#333' },
   selectedItem: { backgroundColor: '#d2e8d2' },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 8 },
-  tagItem: { padding: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 12, margin: 4 },
-  tagSelected: { backgroundColor: '#e0f7ff', borderColor: '#5b8049ff' },
+  tagItem: { 
+    padding: 10, 
+    borderWidth: 1.5, 
+    borderColor: '#ddd', 
+    borderRadius: 12, 
+    margin: 4,
+    backgroundColor: '#fff',
+  },
+  tagSelected: { 
+    backgroundColor: '#E6F4EA', 
+    borderColor: '#568A60',
+    shadowColor: '#568A60',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
   uploadPlaceholder: { backgroundColor: '#f5f5f5', borderWidth: 2, borderColor: '#ddd', borderStyle: 'dashed', borderRadius: 12, padding: 40, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   uploadPlaceholderSmall: { padding: 20 },
   uploadText: { fontSize: 16, fontWeight: '600', color: '#666', marginTop: 12 },
