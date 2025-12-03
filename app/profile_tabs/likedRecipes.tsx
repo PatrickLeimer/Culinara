@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useLikes } from '@/components/LikesContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import RecipeCard, { Recipe, DEFAULT_ASSET_MAP, MOCK_RECIPES } from './recipeCard';
+import RecipeCard, { Recipe, DEFAULT_ASSET_MAP } from './recipeCard';
 
 export default function LikedRecipes() {
   const { likes, unlike, isLiked } = useLikes();
@@ -25,49 +25,62 @@ export default function LikedRecipes() {
       setLoading(true);
       const recipeIds = likes.map((like) => like.recipe_id);
 
-      // Separate valid UUIDs from demo/non-UUID ids to avoid Postgres 22P02 errors
-      const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-      const validIds = recipeIds.filter((id) => isUuid(String(id)));
-      const invalidIds = recipeIds.filter((id) => !isUuid(String(id)));
+      const { data, error } = await supabase
+        .from('Recipes')
+        .select('id, name, description, picture, tags, created_at, owner')
+        .in('id', recipeIds);
 
-      let mapped: Recipe[] = [];
+      if (error) {
+        console.error('Error fetching liked recipes:', error);
+        setLikedRecipes([]);
+        return;
+      }
 
-      if (validIds.length > 0) {
-        const { data, error } = await supabase
-          .from('Recipes')
-          .select('id, name, description, picture, tags, created_at, owner')
-          .in('id', validIds);
+      if (data) {
+        // Fetch ingredients for all recipes
+        const ingredientsMap: Record<string, string[]> = {};
+        if (recipeIds.length > 0) {
+          const { data: recipeIngredients, error: riError } = await supabase
+            .from('Recipe_Ingredients')
+            .select(`
+              recipe_id,
+              Ingredients (
+                name
+              )
+            `)
+            .in('recipe_id', recipeIds);
 
-        if (error) {
-          console.error('Error fetching liked recipes:', error);
-        } else if (data) {
-          mapped = data.map((d: any) => {
-            const pic = d.picture || '';
-            const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
-              ? DEFAULT_ASSET_MAP[pic] ?? '' 
-              : (pic || '');
-
-            return {
-              id: d.id,
-              name: d.name,
-              desc: d.description,
-              tags: d.tags || [],
-              ingredients: [],
-              image: image,
-              created_at: d.created_at,
-              user_id: d.owner,
-            };
-          });
+          if (!riError && recipeIngredients) {
+            recipeIngredients.forEach((ri: any) => {
+              if (ri.recipe_id && ri.Ingredients?.name) {
+                if (!ingredientsMap[ri.recipe_id]) {
+                  ingredientsMap[ri.recipe_id] = [];
+                }
+                ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
+              }
+            });
+          }
         }
-      }
 
-      // Include any local/mock recipes liked during demo (non-UUID ids)
-      if (invalidIds.length > 0) {
-        const mockMatches = MOCK_RECIPES.filter((r) => invalidIds.includes(String(r.id)));
-        if (mockMatches.length) mapped = [...mapped, ...mockMatches];
-      }
+        const mapped: Recipe[] = data.map((d: any) => {
+          const pic = d.picture || '';
+          const image = pic && typeof pic === 'string' && pic.startsWith('assets/') 
+            ? DEFAULT_ASSET_MAP[pic] ?? '' 
+            : (pic || '');
 
-      setLikedRecipes(mapped);
+          return {
+            id: d.id,
+            name: d.name,
+            desc: d.description,
+            tags: d.tags || [],
+            ingredients: ingredientsMap[d.id] || [],
+            image: image,
+            created_at: d.created_at,
+            user_id: d.owner,
+          };
+        });
+        setLikedRecipes(mapped);
+      }
     } catch (err) {
       console.error('Unexpected error fetching liked recipes:', err);
       setLikedRecipes([]);
@@ -127,7 +140,7 @@ export default function LikedRecipes() {
 const styles = StyleSheet.create({
   container: { 
     padding: 12,
-    paddingBottom: 30,
+    paddingBottom: 110, // Account for tab bar height (90px) + extra space
   },
   empty: { 
     flex: 1, 

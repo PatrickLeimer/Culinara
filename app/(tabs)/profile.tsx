@@ -2,8 +2,8 @@
 // PROFILE SCREEN - Component for displaying user profile information
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, DeviceEventEmitter, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, DeviceEventEmitter, ScrollView, Animated } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,15 @@ import MealPlan from '../profile_tabs/mealPlan';
 import GroceryList from '../profile_tabs/groceryList';
 import LikedRecipes from '../profile_tabs/likedRecipes';
 import { Recipe } from '../profile_tabs/recipeCard';
+
+interface ExpandedFriend {
+  friendship_id: number;
+  friend_id: string;
+  friend_username: string | null;
+  friend_name: string | null;
+  friend_email: string | null;
+  created_at: string;
+}
 
 interface UserProfile {
   name: string | null;
@@ -28,7 +37,91 @@ const Profile: React.FC = () => {
   const [friendCount, setFriendCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const router = useRouter();
+
+  // Animation values
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-30)).current;
+  const statsOpacity = useRef(new Animated.Value(0)).current;
+  const statsScale = useRef(new Animated.Value(0.9)).current;
+  const tabsOpacity = useRef(new Animated.Value(0)).current;
+  const tabsTranslateY = useRef(new Animated.Value(20)).current;
+  const statIconAnimations = useRef([
+    { scale: new Animated.Value(0), rotate: new Animated.Value(0) },
+    { scale: new Animated.Value(0), rotate: new Animated.Value(0) },
+  ]).current;
+
+  // Animate on mount
+  useEffect(() => {
+    // Header animation
+    Animated.parallel([
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(headerTranslateY, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Stats animation
+    Animated.parallel([
+      Animated.timing(statsOpacity, {
+        toValue: 1,
+        duration: 500,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(statsScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Animate stat icons
+      statIconAnimations.forEach((anim, index) => {
+        Animated.parallel([
+          Animated.spring(anim.scale, {
+            toValue: 1,
+            tension: 50,
+            friction: 6,
+            delay: 400 + index * 100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.rotate, {
+            toValue: 1,
+            duration: 400,
+            delay: 400 + index * 100,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    });
+
+    // Tabs animation
+    Animated.parallel([
+      Animated.timing(tabsOpacity, {
+        toValue: 1,
+        duration: 500,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(tabsTranslateY, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     fetchUserProfile();
@@ -111,6 +204,7 @@ const Profile: React.FC = () => {
       const { data: userRecipes, error: userRecipesError } = await supabase
         .from('Recipes')
         .select('id, name, description, picture, tags, public, created_at')
+        .select('id, name, description, picture, tags, public, created_at')
         .eq('owner', user.id)
         .order('created_at', { ascending: false });
 
@@ -118,6 +212,33 @@ const Profile: React.FC = () => {
         console.error('Error fetching user recipes:', userRecipesError);
         setRecipes([]);
       } else if (userRecipes) {
+        // Fetch ingredients for all recipes
+        const recipeIds = userRecipes.map((r: any) => r.id);
+        const ingredientsMap: Record<string, string[]> = {};
+        
+        if (recipeIds.length > 0) {
+          const { data: recipeIngredients, error: riError } = await supabase
+            .from('Recipe_Ingredients')
+            .select(`
+              recipe_id,
+              Ingredients (
+                name
+              )
+            `)
+            .in('recipe_id', recipeIds);
+
+          if (!riError && recipeIngredients) {
+            recipeIngredients.forEach((ri: any) => {
+              if (ri.recipe_id && ri.Ingredients?.name) {
+                if (!ingredientsMap[ri.recipe_id]) {
+                  ingredientsMap[ri.recipe_id] = [];
+                }
+                ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
+              }
+            });
+          }
+        }
+
         const mapped: Recipe[] = userRecipes.map((r: any) => ({
           id: r.id,
           name: r.name,
@@ -146,10 +267,19 @@ const Profile: React.FC = () => {
       } else {
         setFriendCount(friendCountResult || 0);
       }
+
+      // Don't fetch friends list here - fetch when modal opens for performance
     } catch (error) {
       console.error('Unexpected error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFriendsModalOpen = () => {
+    console.log('[Profile] Navigating to friends list for current user');
+    if (currentUserId) {
+      router.push(`/friends/${currentUserId}` as any);
     }
   };
 
@@ -201,59 +331,146 @@ const Profile: React.FC = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{getDisplayName()}</Text>
-        {userProfile?.username && (
-          <Text style={styles.headerSubtitle}>@{userProfile.username}</Text>
-        )}
-        {userProfile?.email && (
-          <Text style={styles.headerEmail}>{userProfile.email}</Text>
-        )}
-        <TouchableOpacity 
-          style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]} 
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          {loggingOut ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.logoutButtonText}>Log Out</Text>
+      <Animated.View 
+        style={[
+          styles.header,
+          {
+            opacity: headerOpacity,
+            transform: [{ translateY: headerTranslateY }],
+          }
+        ]}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.placeholder} />
+          <Text style={styles.headerTitle}>{getDisplayName()}</Text>
+          <TouchableOpacity 
+            style={styles.signOutButton}
+            onPress={handleLogout}
+            disabled={loggingOut}
+            activeOpacity={0.7}
+          >
+            {loggingOut ? (
+              <ActivityIndicator size="small" color="#568A60" />
+            ) : (
+              <FontAwesome name="sign-out" size={20} color="#568A60" />
+            )}
+          </TouchableOpacity>
+        </View>
+        <View style={styles.headerContent}>
+          {userProfile?.username && (
+            <Text style={styles.headerSubtitle}>@{userProfile.username}</Text>
           )}
-        </TouchableOpacity>
-      </View>
+          {userProfile?.email && (
+            <Text style={styles.headerEmail}>{userProfile.email}</Text>
+          )}
+        </View>
+      </Animated.View>
 
       {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Friends</Text>
+      <Animated.View 
+        style={[
+          styles.statsContainer,
+          {
+            opacity: statsOpacity,
+            transform: [{ scale: statsScale }],
+          }
+        ]}
+      >
+            <TouchableOpacity 
+              style={styles.statBox}
+              onPress={() => friendCount > 0 && handleFriendsModalOpen()}
+              activeOpacity={friendCount > 0 ? 0.7 : 1}
+            >
+          <Animated.View 
+            style={[
+              styles.statIconContainer,
+              {
+                transform: [
+                  { scale: statIconAnimations[0].scale },
+                  {
+                    rotate: statIconAnimations[0].rotate.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['-180deg', '0deg'],
+                    }),
+                  },
+                ],
+              }
+            ]}
+          >
+            <FontAwesome name="users" size={20} color="#568A60" />
+          </Animated.View>
           <Text style={styles.statNumber}>{friendCount}</Text>
-        </View>
+          <Text style={styles.statLabel}>Friends</Text>
+        </TouchableOpacity>
+        <View style={styles.statDivider} />
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Recipes</Text>
+          <Animated.View 
+            style={[
+              styles.statIconContainer,
+              {
+                transform: [
+                  { scale: statIconAnimations[1].scale },
+                  {
+                    rotate: statIconAnimations[1].rotate.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['-180deg', '0deg'],
+                    }),
+                  },
+                ],
+              }
+            ]}
+          >
+            <FontAwesome name="book" size={20} color="#568A60" />
+          </Animated.View>
           <Text style={styles.statNumber}>{recipeCount}</Text>
+          <Text style={styles.statLabel}>Recipes</Text>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <Animated.View 
+        style={[
+          styles.tabsContainer,
+          {
+            opacity: tabsOpacity,
+            transform: [{ translateY: tabsTranslateY }],
+          }
+        ]}
+      >
         {[
-          { id: 'myRecipes', label: 'My Recipes' },
-          { id: 'mealPlan', label: 'Meal Plan' },
-          { id: 'liked', icon: <FontAwesome name="heart-o" size={18} color="#FF4D4D" /> },
-          { id: 'groceries', icon: <FontAwesome name="shopping-basket" size={18} color="#5b8049ff" /> },
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[
-              styles.tab,
-              activeTab === (tab.id as any) && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab(tab.id as any)}
-          >
-            {tab.icon ?? <Text style={styles.tabText}>{tab.label}</Text>}
-          </TouchableOpacity>
-        ))}
-      </View>
+          { id: 'myRecipes', label: 'Recipes', icon: 'book', showLabel: true },
+          { id: 'mealPlan', label: '', icon: 'calendar', showLabel: true },
+          { id: 'liked', label: '', icon: 'heart', showLabel: false },
+          { id: 'groceries', label: '', icon: 'shopping-basket', showLabel: false },
+        ].map((tab) => {
+          const isActive = activeTab === (tab.id as any);
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tab,
+                isActive && styles.activeTab,
+              ]}
+              onPress={() => {
+                setActiveTab(tab.id as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <FontAwesome 
+                name={tab.icon as any} 
+                size={16} 
+                color={isActive ? '#fff' : '#666'} 
+                style={tab.showLabel ? { marginRight: 6 } : {}}
+              />
+              {tab.showLabel && (
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </Animated.View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
@@ -262,6 +479,7 @@ const Profile: React.FC = () => {
         {activeTab === 'groceries' && <GroceryList />}
         {activeTab === 'liked' && <LikedRecipes />}
       </View>
+
     </ScrollView>
   );
 };
@@ -271,12 +489,12 @@ export default Profile;
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#bfcdb8ff' 
+    backgroundColor: '#fff' 
   },
   
   scrollContent: {
     paddingTop: 50,
-    paddingBottom: 30,
+    paddingBottom: 110, // Account for tab bar height (90px) + extra space
   },
   
   loadingContainer: {
@@ -285,96 +503,251 @@ const styles = StyleSheet.create({
   },
   
   header: { 
-    alignItems: 'center', 
-    marginTop: 20,
+    marginTop: 24,
+    marginBottom: 32,
+    paddingHorizontal: 20,
+  },
+
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+
+  placeholder: {
+    width: 40,
+  },
+
+  headerContent: {
+    alignItems: 'center',
     marginBottom: 20,
-    paddingHorizontal: 10,
   },
 
   headerTitle: { 
-    fontSize: 22, 
-    letterSpacing: 1,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 32, 
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: -0.5,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  signOutButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#f0f4f1',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#568A60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#568A60',
-    marginBottom: 4,
+    marginBottom: 6,
+    fontWeight: '600',
   },
 
   headerEmail: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+    color: '#888',
+    marginBottom: 0,
   },
 
-  logoutButton: {
-    backgroundColor: '#5b8049ff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-
-  logoutButtonDisabled: {
-    opacity: 0.7,
-  },
-
-  logoutButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
 
   statsContainer: { 
     flexDirection: 'row', 
     justifyContent: 'space-around', 
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    marginBottom: 32,
+    paddingHorizontal: 32,
+    paddingVertical: 32,
+    backgroundColor: '#f9f9f9',
+    marginHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   statBox: { 
-    alignItems: 'center' 
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
 
-  statLabel: { 
-    fontSize: 16, color: '#666' 
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E6F4EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    shadowColor: '#568A60',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   statNumber: { 
-    fontSize: 20, fontWeight: 'bold' 
+    fontSize: 32, 
+    fontWeight: '700',
+    color: '#568A60',
+    letterSpacing: -0.8,
+    marginBottom: 4,
+  },
+
+  statLabel: { 
+    fontSize: 13, 
+    color: '#888',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 8,
   },
 
   tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#bfcdb8ff',
+    marginBottom: 28,
+    paddingHorizontal: 20,
     flexWrap: 'nowrap',
-    paddingHorizontal: 10,
+    gap: 8,
   },
 
   tab: {
-    paddingVertical: 6,
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 10,
-    marginHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    minHeight: 44,
+    maxHeight: 44,
   },
 
   activeTab: {
-    backgroundColor: '#ececec',
+    backgroundColor: '#568A60',
+    borderColor: '#568A60',
+    shadowColor: '#568A60',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   tabText: {
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    letterSpacing: 0.2,
+  },
+
+  tabTextActive: {
+    color: '#fff',
   },
 
   contentContainer: { 
     flex: 1,
     backgroundColor: 'transparent',
     minHeight: 400,
+    paddingHorizontal: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalFriendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalFriendAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E6F4EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  modalFriendInfo: {
+    flex: 1,
+  },
+  modalFriendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 2,
+  },
+  modalFriendUsername: {
+    fontSize: 14,
+    color: '#568A60',
+  },
+  emptyFriendsState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyFriendsText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 12,
+    marginTop: 8,
   },
 });
