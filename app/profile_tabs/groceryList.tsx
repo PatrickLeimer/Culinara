@@ -447,6 +447,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 8, paddingHorizontal: 16 },
   center: { justifyContent: 'center', alignItems: 'center', flex: 1 },
   addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  addContainerVertical: { flexDirection: 'column', marginBottom: 16, gap: 8 },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   searchButton: { padding: 10, backgroundColor: '#E6F4EA', borderRadius: 8 },
   input: {
     borderWidth: 1,
