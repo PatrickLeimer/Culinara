@@ -17,16 +17,17 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
         headerShown: useClientOnlyValue(false, true), // no top header for tabs
 
         // Make tab bar span full width, flush to bottom, light gray background
         tabBarStyle: {
-          backgroundColor: colorScheme === 'dark' ? 'rgba(20,20,20,0.95)' : '#fcfcfd',
+          backgroundColor: colorScheme === 'dark' ? 'rgba(121, 118, 118, 0.77)' : '#fcfcfd',
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: 64,
+          height: 76,
           borderTopLeftRadius: 12,
           borderTopRightRadius: 12,
           borderTopWidth: 0,
@@ -39,7 +40,7 @@ export default function TabLayout() {
 
         // Add these two lines to adjust spacing
         tabBarLabelStyle: {
-          marginTop: 10, // increase to add more space between icon and label
+          marginTop: 8, // increase to add more space between icon and label
         },
       }}
     >

@@ -53,7 +53,7 @@ export default function GroceryList() {
   const [newItem, setNewItem] = useState({
     name: '',
     quantity: '',
-    unit: 'piece',
+    unit: 'amt',
     price: '',
     ingredient_id: undefined as number | undefined,
   });
@@ -291,35 +291,43 @@ export default function GroceryList() {
           },
         ]}
       >
-        <TouchableOpacity style={styles.searchButton} onPress={() => setShowIngredientSearch(true)}>
-          <FontAwesome name="search" size={16} color="#568A60" />
-        </TouchableOpacity>
-        <TextInput
-          style={[styles.input, { flex: 2 }]}
-          placeholder="Item Name"
-          value={newItem.name}
-          onChangeText={(text) => {
-            setNewItem({ ...newItem, name: text });
-            if (text.length > 2) {
-              searchIngredients(text);
-              setShowIngredientSearch(true);
-            }
-          }}
-        />
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="Qty"
-          value={newItem.quantity}
-          onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
-          keyboardType="numeric"
-        />
-        <TouchableOpacity style={styles.unitPicker} onPress={() => setShowUnitPicker(true)}>
-          <Text style={styles.unitText}>{newItem.unit}</Text>
-          <FontAwesome name="chevron-down" size={12} color="#666" style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.addButton} onPress={addGroceryItem} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff' }}>Add</Text>}
-        </TouchableOpacity>
+        {/* Top long bar: search button + wide name input */}
+        <View style={styles.addTopRow}>
+          <TouchableOpacity style={styles.searchButton} onPress={() => setShowIngredientSearch(true)}>
+            <FontAwesome name="search" size={18} color="#568A60" />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.topInput]}
+            placeholder="Search or enter item name"
+            value={newItem.name}
+            onChangeText={(text) => {
+              setNewItem({ ...newItem, name: text });
+              if (text.length > 2) {
+                searchIngredients(text);
+                setShowIngredientSearch(true);
+              }
+            }}
+            returnKeyType="search"
+          />
+        </View>
+
+        {/* Bottom row: qty, unit, add */}
+        <View style={styles.addBottomRow}>
+          <TextInput
+            style={[styles.input, { width: 80 }]}
+            placeholder="Qty"
+            value={newItem.quantity}
+            onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
+            keyboardType="numeric"
+          />
+          <TouchableOpacity style={[styles.unitPicker, { marginLeft: 8 }]} onPress={() => setShowUnitPicker(true)}>
+            <Text style={styles.unitText}>{newItem.unit}</Text>
+            <FontAwesome name="chevron-down" size={12} color="#666" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.addButton, { marginLeft: 'auto' }]} onPress={addGroceryItem} disabled={saving}>
+            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff' }}>Add</Text>}
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* Grocery List */}
@@ -336,7 +344,8 @@ export default function GroceryList() {
                 <Switch
                   value={item.inPantry}
                   onValueChange={() => togglePantry(item, index)}
-                  trackColor={{ false: '#ccc', true: '#568A60' }}
+                  trackColor={{ false: '#d2d0d0ff', true: '#568A60' }}
+                  ios_backgroundColor="#d2d0d0ff"
                 />
                 <TextInput
                   style={[styles.nameInput]}
@@ -446,9 +455,18 @@ export default function GroceryList() {
 const styles = StyleSheet.create({
   container: { flex: 1, marginTop: 8, paddingHorizontal: 16 },
   center: { justifyContent: 'center', alignItems: 'center', flex: 1 },
-  addContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-  addContainerVertical: { flexDirection: 'column', marginBottom: 16, gap: 8 },
-  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addContainer: { flexDirection: 'column', alignItems: 'stretch', marginBottom: 16, gap: 8 },
+  addTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  topInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  addBottomRow: { flexDirection: 'row', alignItems: 'center' },
   searchButton: { padding: 10, backgroundColor: '#E6F4EA', borderRadius: 8 },
   input: {
     borderWidth: 1,
@@ -462,9 +480,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
+    minWidth: 80,
+    paddingVertical: 8,
+    minHeight: 10,
+    marginRight: 14,
   },
   unitText: { fontSize: 14, color: '#333' },
   addButton: { backgroundColor: '#568A60', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
@@ -476,10 +499,10 @@ const styles = StyleSheet.create({
     padding: 12,
     elevation: 2,
   },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  nameInput: { flex: 2, borderBottomWidth: 1, borderColor: '#ccc', fontSize: 16 },
-  qtyInput: { width: 50, borderBottomWidth: 1, textAlign: 'center' },
-  deleteButton: { padding: 8, backgroundColor: '#ffebee', borderRadius: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  nameInput: { flex: 1, borderBottomWidth: 1, borderColor: '#ccc', fontSize: 14, marginHorizontal: 4, minWidth: 100 },
+  qtyInput: { width: 40, borderBottomWidth: 1, textAlign: 'center', marginHorizontal: 4, fontSize: 12 },
+  deleteButton: { padding: 6, backgroundColor: '#ffebee', borderRadius: 6, marginLeft: 4 },
   emptyState: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: '#777', marginTop: 8 },
   modalOverlay: {
