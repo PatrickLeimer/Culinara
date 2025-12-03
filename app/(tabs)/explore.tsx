@@ -368,7 +368,7 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: '#d6ddd6ff', paddingHorizontal: 20, paddingTop: 50 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { alignItems: 'center', marginVertical: 24 },
   headerTitle: { fontSize: 32, fontWeight: '700', color: '#000', marginBottom: 6 },

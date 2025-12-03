@@ -351,7 +351,7 @@ export default function FriendsScreen() {
 
 // ======================== STYLES ========================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#bfcdb8ff', paddingTop: 50, paddingHorizontal: 20 },
+  container: { flex: 1, backgroundColor: '#d6ddd6ff', paddingTop: 50, paddingHorizontal: 20 },
   header: { alignItems: 'center', marginVertical: 10 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#000' },
   searchContainer: {

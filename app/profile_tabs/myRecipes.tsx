@@ -688,7 +688,7 @@ const MyRecipes: React.FC<Props> = ({ recipes, setRecipes }) => {
 export default MyRecipes;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#bfcdb8ff' },
+  container: { flex: 1, backgroundColor: '#d6ddd6ff' },
   addButton: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#5b8049ff', borderRadius: 30, padding: 12, zIndex: 2 },
   grid: { paddingBottom: 120, paddingHorizontal: 12 },
   emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60, paddingHorizontal: 20 },
