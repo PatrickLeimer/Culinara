@@ -37,38 +37,61 @@ export default function ExploreScreen() {
     return shuffled;
   };
 
-  // Helper function to fetch ingredients for recipes
+  // Helper: clean ingredient display names by stripping " by ..."
+  const cleanIngredientName = (name: string) => {
+    if (!name) return name;
+    const idx = name.toLowerCase().indexOf(' by ');
+    return idx >= 0 ? name.slice(0, idx).trim() : name.trim();
+  };
+
+  // Helper function to fetch ingredient names per recipe using two-step queries
   const fetchRecipeIngredients = async (recipeIds: string[]): Promise<Record<string, string[]>> => {
     if (recipeIds.length === 0) return {};
 
     try {
-      const { data, error } = await supabase
+      // Step 1: fetch join rows without embedding to avoid ambiguity (PGRST201)
+      const { data: joinRows, error: joinError } = await supabase
         .from('Recipe_Ingredients')
-        .select(`
-          recipe_id,
-          Ingredients (
-            name
-          )
-        `)
+        .select('recipe_id, ingredient_id')
         .in('recipe_id', recipeIds);
 
-      if (error) {
-        console.error('Error fetching recipe ingredients:', error);
+      if (joinError) {
+        console.error('Error fetching recipe ingredient joins:', joinError);
         return {};
       }
 
-      // Group ingredients by recipe_id
-      const ingredientsMap: Record<string, string[]> = {};
-      if (data) {
-        data.forEach((ri: any) => {
-          if (ri.recipe_id && ri.Ingredients?.name) {
-            if (!ingredientsMap[ri.recipe_id]) {
-              ingredientsMap[ri.recipe_id] = [];
-            }
-            ingredientsMap[ri.recipe_id].push(ri.Ingredients.name);
-          }
-        });
+      const ingredientIds = Array.from(
+        new Set((joinRows ?? []).map((r: any) => r.ingredient_id).filter(Boolean))
+      );
+
+      if (ingredientIds.length === 0) {
+        return {};
       }
+
+      // Step 2: fetch ingredient names by IDs
+      const { data: ingredients, error: ingError } = await supabase
+        .from('Ingredients')
+        .select('id, name')
+        .in('id', ingredientIds as number[]);
+
+      if (ingError) {
+        console.error('Error fetching ingredient names:', ingError);
+        return {};
+      }
+
+      const nameById = new Map<number, string>();
+      (ingredients ?? []).forEach((ing: any) => {
+        nameById.set(ing.id, cleanIngredientName(String(ing.name ?? '')));
+      });
+
+      const ingredientsMap: Record<string, string[]> = {};
+      (joinRows ?? []).forEach((r: any) => {
+        const rid = String(r.recipe_id ?? '');
+        const name = nameById.get(Number(r.ingredient_id));
+        if (!rid || !name) return;
+        if (!ingredientsMap[rid]) ingredientsMap[rid] = [];
+        ingredientsMap[rid].push(name);
+      });
 
       return ingredientsMap;
     } catch (err) {

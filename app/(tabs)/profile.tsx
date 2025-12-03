@@ -204,6 +204,7 @@ const Profile: React.FC = () => {
       const { data: userRecipes, error: userRecipesError } = await supabase
         .from('Recipes')
         .select('id, name, description, picture, tags, public, created_at')
+        .select('id, name, description, picture, tags, public, created_at')
         .eq('owner', user.id)
         .order('created_at', { ascending: false });
 
@@ -243,7 +244,7 @@ const Profile: React.FC = () => {
           name: r.name,
           desc: r.description || '',
           description: r.description || '',
-          ingredients: ingredientsMap[r.id] || [],
+          ingredients: [],
           tags: r.tags || [],
           public: !!r.public,
           Public: !!r.public,

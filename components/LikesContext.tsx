@@ -110,13 +110,13 @@ export const LikesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Insert directly into the old table name
-      const { error: insertError } = await supabase.from('Recipe_Likes').insert({ user_id: user.id, recipe_id });
-      if (insertError) throw insertError;
+        // Call RPC to insert like (safer with RLS)
+        const { data: rpcData, error: rpcError } = await supabase.rpc('like_recipe', { p_recipe_id: recipe_id });
+        if (rpcError) throw rpcError;
 
       await loadLikes();
     } catch (e) {
-      console.error('Error liking recipe', e);
+        console.error('Error liking recipe', e);
       // rollback optimistic update
       setLikes((s) => s.filter((l) => l.id !== temp.id));
     }
@@ -141,12 +141,9 @@ export const LikesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error: delError } = await supabase
-        .from('Recipe_Likes')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('recipe_id', recipe_id);
-      if (delError) throw delError;
+      // Call RPC to unlike (safer with RLS)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('unlike_recipe', { p_recipe_id: recipe_id });
+      if (rpcError) throw rpcError;
 
       await loadLikes();
     } catch (e) {
